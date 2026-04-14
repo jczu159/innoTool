@@ -48,3 +48,24 @@ class GitService:
     def local_branch_exists(self, branch_name: str) -> bool:
         ok, out = self._run(["git", "branch", "--list", branch_name])
         return ok and bool(out.strip())
+
+    def update_version_properties(self, branch_name: str) -> Tuple[bool, str]:
+        """從 release/x.y.z 解析版本號，寫入 version.properties 並 commit"""
+        import re
+        m = re.match(r'^release/(\d+\.\d+\.\d+)$', branch_name)
+        if not m:
+            return False, f"無法從 branch 名稱解析版本號: {branch_name}"
+        version_str = f"v{m.group(1)}"
+        prop_path = os.path.join(self.repo_path, "src", "main", "resources", "version.properties")
+        try:
+            with open(prop_path, "w", encoding="utf-8") as f:
+                f.write(f"version={version_str}\n")
+        except Exception as e:
+            return False, f"寫入 version.properties 失敗: {e}"
+        ok, out = self._run(["git", "add", "src/main/resources/version.properties"])
+        if not ok:
+            return False, f"git add 失敗: {out}"
+        ok, out = self._run(["git", "commit", "-m", f"bump version to {version_str}"])
+        if not ok:
+            return False, f"git commit 失敗: {out}"
+        return True, f"version.properties 已更新為 version={version_str}"

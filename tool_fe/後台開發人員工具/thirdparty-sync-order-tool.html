@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>同步訂單工具 (RD Internal)</title>
+<style>
+  :root {
+    --bg: #0f172a; --sidebar: #1e293b; --border: #334155;
+    --blue: #3b82f6; --text: #e2e8f0; --muted: #64748b; --muted2: #94a3b8;
+    --input-bg: #0f172a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+
+  /* ── Top Nav ── */
+  .topnav { background: #020617; border-bottom: 1px solid #1e293b; padding: 0 20px; display: flex; align-items: center; height: 42px; flex-shrink: 0; }
+  .topnav .brand { font-size: 12px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 1px; padding-right: 20px; border-right: 1px solid #1e293b; margin-right: 8px; white-space: nowrap; }
+  .topnav a { display: flex; align-items: center; gap: 6px; padding: 0 14px; height: 42px; font-size: 12px; color: #64748b; text-decoration: none; border-bottom: 2px solid transparent; transition: all .15s; white-space: nowrap; }
+  .topnav a:hover { color: #e2e8f0; background: #0f172a; }
+  .topnav a.active { color: #3b82f6; border-bottom-color: #3b82f6; font-weight: 600; }
+
+  /* ── Header ── */
+  header { background: var(--sidebar); border-bottom: 1px solid var(--border); padding: 14px 24px; display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+  header h1 { font-size: 18px; font-weight: 700; }
+  .badge { font-size: 10px; padding: 2px 8px; border-radius: 4px; font-weight: 700; background: #dc2626; color: #fff; }
+
+  /* ── Layout ── */
+  .layout { display: flex; flex: 1; overflow: hidden; }
+
+  /* ── Sidebar ── */
+  .sidebar { width: 260px; background: var(--sidebar); border-right: 1px solid var(--border); padding: 20px; overflow-y: auto; flex-shrink: 0; }
+  .sidebar-title { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; font-weight: 700; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 11px; color: var(--muted2); margin-bottom: 5px; font-weight: 600; }
+  .field input { width: 100%; background: var(--input-bg); border: 1px solid var(--border); color: var(--text); padding: 8px 10px; border-radius: 6px; font-size: 12px; }
+  .field input:focus { outline: none; border-color: var(--blue); }
+
+  /* ── Content ── */
+  .content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* ── Provider Tabs ── */
+  .tabs-bar { background: #1e293b; padding: 0 20px; display: flex; gap: 2px; border-bottom: 1px solid var(--border); overflow-x: auto; flex-shrink: 0; }
+  .tab { padding: 12px 16px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--muted); border-bottom: 2px solid transparent; white-space: nowrap; transition: color .15s, border-color .15s; display: flex; align-items: center; gap: 5px; user-select: none; }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+  .badge-sync { font-size: 10px; padding: 1px 6px; border-radius: 10px; font-weight: 600; background: #1d4ed8; color: #bfdbfe; }
+  .badge-pull { font-size: 10px; padding: 1px 6px; border-radius: 10px; font-weight: 600; background: #065f46; color: #a7f3d0; }
+
+  /* ── Main scroll area ── */
+  .main { padding: 20px 24px; flex: 1; overflow-y: auto; }
+
+  /* ── Form Card ── */
+  .form-card { display: none; }
+  .form-card.active { display: block; }
+  .card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid #21262d; }
+  .card-title { font-size: 15px; font-weight: 600; color: #e6edf3; }
+  .card-meta { font-size: 11px; font-family: monospace; color: var(--muted2); background: #21262d; padding: 3px 8px; border-radius: 4px; }
+  .method-get  { color: #56d364; }
+  .method-post { color: #f78166; }
+
+  /* ── Timezone notice ── */
+  .tz-notice { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 7px; margin-bottom: 14px; font-size: 13px; font-weight: 600; }
+  .tz-bj { background: #162032; color: #79c0ff; border: 1px solid #1f3a5f; }
+  .tz-et { background: #2a1a00; color: #f0a742; border: 1px solid #6b4000; }
+
+  /* ── Form grid ── */
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 13px; margin-bottom: 13px; }
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  .form-group label { font-size: 12px; color: var(--muted2); font-weight: 500; }
+  .form-group input, .form-group select { background: #21262d; border: 1px solid var(--border); color: var(--text); padding: 8px 10px; border-radius: 6px; font-size: 13px; transition: border-color .15s; }
+  .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--blue); }
+  .form-group select option { background: #21262d; }
+  .hint { font-size: 11px; color: #6e7681; margin-top: 2px; }
+  input[list]::-webkit-calendar-picker-indicator { display: none !important; }
+
+  /* ── Checkboxes (disabled) ── */
+  .cb-section { background: #0d1117; border: 1px solid #21262d; border-radius: 7px; padding: 11px 15px; margin-bottom: 13px; }
+  .cb-label { font-size: 11px; color: #484f58; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 9px; display: flex; align-items: center; gap: 8px; }
+  .cb-label span { font-style: italic; color: #3d444d; font-weight: 400; text-transform: none; letter-spacing: 0; }
+  .cb-grid { display: flex; flex-wrap: wrap; gap: 9px 18px; }
+  .cb-item { display: flex; align-items: center; gap: 7px; }
+  .cb-item input[type="checkbox"] { width: 14px; height: 14px; accent-color: var(--blue); cursor: not-allowed; }
+  .cb-item span { font-size: 12px; color: #6e7681; font-family: monospace; }
+
+  /* ── Actions ── */
+  .actions { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .btn-submit { background: #238636; color: #fff; border: 1px solid #2ea043; padding: 8px 20px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; transition: background .15s; }
+  .btn-submit:hover { background: #2ea043; }
+  .btn-submit:disabled { background: #21262d; border-color: var(--border); color: var(--muted); cursor: not-allowed; }
+  .status-dot { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 4px 10px; border-radius: 20px; }
+  .status-loading { background: #3d2b00; color: #e3b341; }
+  .status-ok      { background: #0f2a1b; color: #56d364; }
+  .status-err     { background: #3d0f0f; color: #f85149; }
+
+  /* ── Two-panel ── */
+  .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 880px) { .panels { grid-template-columns: 1fr; } }
+  .panel-label { font-size: 11px; color: #6e7681; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between; }
+  .panel-btns { display: flex; gap: 4px; }
+  .btn-mini { background: transparent; border: 1px solid var(--border); color: var(--muted); font-size: 11px; cursor: pointer; padding: 2px 7px; border-radius: 4px; transition: all .15s; }
+  .btn-mini:hover { color: var(--text); border-color: var(--muted2); }
+
+  /* ── cURL textarea ── */
+  .curl-ta { background: #0d1117; border: 1px solid #21262d; border-radius: 6px; padding: 12px; font-size: 12px; font-family: 'Cascadia Code','Fira Code','Consolas',monospace; color: #8b949e; width: 100%; min-height: 195px; resize: vertical; outline: none; line-height: 1.6; transition: border-color .15s; }
+  .curl-ta:focus { border-color: #388bfd; color: var(--text); }
+  .curl-ta.dirty { border-color: #6b4000; }
+
+  /* ── Response ── */
+  .resp-container { background: #0d1117; border: 1px solid #21262d; border-radius: 6px; overflow-y: auto; max-height: 380px; min-height: 195px; }
+  .resp-empty { padding: 14px; color: #484f58; font-size: 12px; }
+  .result-item { padding: 9px 13px; border-bottom: 1px solid #161b22; }
+  .result-item:last-child { border-bottom: none; }
+  .result-item.newest { border-left: 3px solid var(--blue); }
+  .result-meta { display: flex; align-items: center; gap: 7px; font-size: 11px; margin-bottom: 5px; flex-wrap: wrap; }
+  .result-badge { background: #1f3a5f; color: #79c0ff; padding: 1px 7px; border-radius: 4px; font-weight: 700; }
+  .result-range { color: #6e7681; font-family: monospace; }
+  .result-body { font-family: 'Cascadia Code','Fira Code','Consolas',monospace; font-size: 11.5px; white-space: pre-wrap; word-break: break-all; line-height: 1.5; color: #8b949e; max-height: 130px; overflow-y: auto; }
+  .jk { color: #79c0ff; } .jv { color: #a5d6ff; } .jb { color: #56d364; } .jnb { color: #f78166; } .jn { color: #f0883e; }
+
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <span class="brand">Tiger Dev Tools</span>
+  <a href="game-switch-tool.html">🎮 遊戲開關</a>
+  <a href="provider-setting-tool.html">⚙️ 商戶號設定</a>
+  <a href="megaxcess-audit-reconcile-tool.html">🔍 MegaXcess Tools</a>
+  <a href="thirdparty-sync-order-tool.html" class="active">🔄 同步訂單</a>
+</nav>
+
+<header>
+  <span>🔄</span>
+  <h1>同步訂單工具</h1>
+  <span class="badge">RD INTERNAL</span>
+</header>
+
+<div class="layout">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div class="sidebar-title">連線設定</div>
+
+    <div id="domain-select-container" class="field"></div>
+
+    <div class="field">
+      <label>Developer Key (<code style="color:#fbbf24;font-size:11px;">?key=xxx</code>)</label>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <input id="devKey" type="text" placeholder="點擊右側按鈕取得" style="flex:1;font-family:monospace;">
+        <button onclick="fetchDevKey()" style="padding:6px 10px;font-size:11px;background:#1e3a5f;border:1px solid #3b82f6;color:#93c5fd;border-radius:6px;cursor:pointer;white-space:nowrap;">🔑 取得</button>
+      </div>
+      <span id="keyStatus" style="font-size:11px;color:#6e7681;margin-top:3px;display:block;"></span>
+    </div>
+
+    <div class="field">
+      <label>Vendor（選填，可在各頁籤覆蓋）</label>
+      <input id="globalVendor" type="text" placeholder="DE1" value="DE1">
+    </div>
+
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
+      <div class="sidebar-title">使用說明</div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.9;">
+        1. 選擇環境 Domain<br>
+        2. 點「🔑 取得」取得 Dev Key<br>
+        3. 選擇遊戲商頁籤<br>
+        4. 設定時間後送出請求<br><br>
+        <span style="color:#fbbf24;">⏰ 注意時區：</span><br>
+        <span style="color:#79c0ff;">北京時間</span>：KY / V8<br>
+        <span style="color:#f0a742;">美東時間</span>：PT / KS / DB捕魚 / DB棋牌
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── Content ── -->
+  <div class="content">
+
+    <!-- Provider Tab Bar -->
+    <div class="tabs-bar">
+      <div class="tab active" id="tab-ky"  onclick="switchTab('ky')">(10) KY 棋牌   <span class="badge-sync">Sync</span></div>
+      <div class="tab"        id="tab-v8"  onclick="switchTab('v8')">(25) V8 棋牌   <span class="badge-sync">Sync</span></div>
+      <div class="tab"        id="tab-pt"  onclick="switchTab('pt')">(17) PT 老虎機 <span class="badge-sync">Sync</span></div>
+      <div class="tab"        id="tab-ks"  onclick="switchTab('ks')">(14) KS 捕魚   <span class="badge-pull">Pull</span></div>
+      <div class="tab"        id="tab-dbf" onclick="switchTab('dbf')">(39) DB 捕魚  <span class="badge-pull">Pull</span></div>
+      <div class="tab"        id="tab-dbc" onclick="switchTab('dbc')">(37) DB 棋牌  <span class="badge-pull">Pull</span></div>
+      <div class="tab"        id="tab-pd"  onclick="switchTab('pd')">(35) DB 電競技 <span class="badge-pull">Pull</span></div>
+    </div>
+
+    <div class="main">
+      <datalist id="currency-opts">
+        <option value="CNY"><option value="USD"><option value="USDT"><option value="ALL">
+      </datalist>
+
+      <!-- ── KY 棋牌 ── -->
+      <div class="form-card active" id="card-ky">
+        <div class="card-header">
+          <span class="card-title">KY 棋牌</span>
+          <span class="card-meta"><span class="method-post">POST</span> /developer/ky/pull-again</span>
+          <span class="card-meta">Provider: 10 · KY_BOARD</span>
+        </div>
+        <div class="tz-notice tz-bj">⏰ 此遊戲拉單請使用 <strong>北京時間（UTC+8）</strong></div>
+        <div class="form-grid">
+          <div class="form-group"><label>開始時間 (startDate)</label><input type="datetime-local" id="ky-startDate" step="1" oninput="onFormChange('ky')"><span class="hint">格式 yyyy-MM-dd HH:mm:ss</span></div>
+          <div class="form-group"><label>結束時間 (endDate)</label><input type="datetime-local" id="ky-endDate" step="1" oninput="onFormChange('ky')"></div>
+          <div class="form-group"><label>幣別 (currency)</label><input type="text" id="ky-currency" list="currency-opts" value="CNY" autocomplete="off" oninput="onFormChange('ky')"></div>
+          <div class="form-group"><label>代理商 (vendor)</label><input type="text" id="ky-vendor" oninput="onFormChange('ky')"></div>
+        </div>
+        <div class="cb-section">
+          <div class="cb-label">布林選項 <span>固定值 · 如需調整請直接編輯下方 cURL</span></div>
+          <div class="cb-grid">
+            <label class="cb-item"><input type="checkbox" checked disabled><span>resendKafkaBetUpdate = true</span></label>
+            <label class="cb-item"><input type="checkbox" checked disabled><span>resendKafkaWalletHistory = true</span></label>
+            <label class="cb-item"><input type="checkbox" checked disabled><span>resendEffectiveAnte = true</span></label>
+            <label class="cb-item"><input type="checkbox" checked disabled><span>resendRebate = true</span></label>
+            <label class="cb-item"><input type="checkbox" checked disabled><span>updateWalletHistoryDate = true</span></label>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn-submit" onclick="submitFromCurl('ky')">送出請求</button>
+          <span class="status-dot" id="ky-status" style="display:none"></span>
+        </div>
+        <div class="panels">
+          <div>
+            <div class="panel-label">Generated cURL<div class="panel-btns"><button class="btn-mini" onclick="resetCurl('ky')">↺ Reset</button><button class="btn-mini" id="copy-ky" onclick="copyCurl('ky')">複製</button></div></div>
+            <textarea class="curl-ta" id="ky-curl-edit" spellcheck="false" oninput="markDirty('ky')"></textarea>
+          </div>
+          <div>
+            <div class="panel-label">Response <span id="ky-resp-count" style="color:#484f58"></span></div>
+            <div class="resp-container" id="ky-resp-container"><div class="resp-empty">等待請求...</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── V8 棋牌 ── -->
+      <div class="form-card" id="card-v8">
+        <div class="card-header">
+          <span class="card-title">V8 棋牌</span>
+          <span class="card-meta"><span class="method-post">POST</span> /developer/v8/pull-again</span>
+          <span class="card-meta">Provider: 25 · V8_BOARD</span>
+        </div>
+        <div class="tz-notice tz-bj">⏰ 此遊戲拉單請使用 <strong>北京時間（UTC+8）</strong></div>
+        <div class="form-grid">
+          <div class="form-group"><label>開始時間 (startDate)</label><input type="datetime-local" id="v8-startDate" step="1" oninput="onFormChange('v8')"><span class="hint">格式 yyyy-MM-dd HH:mm:ss</span></div>
+          <div class="form-group"><label>結束時間 (endDate)</label><input type="datetime-local" id="v8-endDate" step="1" oninput="onFormChange('v8')"></div>
+          <div class="form-group"><label>幣別 (currency)</label><input type="text" id="v8-currency" list="currency-opts" value="CNY" autocomplete="off" oninput="onFormChange('v8')"></div>
+          <div class="form-group"><label>代理商 (vendor)</label><input type="text" id="v8-vendor" oninput="onFormChange('v8')"><span class="hint">vendor 自動帶入 vendors[]</span></div>
+        </div>
+        <div class="cb-section">
+          <div class="cb-label">布林選項 <span>固定值</span></div>
+          <div class="cb-grid">
+            <label class="cb-item"><input type="checkbox" checked disabled><span>resendKafkaBetUpdate = true</span></label>
+            <label class="cb-item"><input type="checkbox" checked disabled><span>resendKafkaWalletHistory = true</span></label>
+            <label class="cb-item"><input type="checkbox" checked disabled><span>resendEffectiveAnte = true</span></label>
+            <label class="cb-item"><input type="checkbox" checked disabled><span>resendRebate = true</span></label>
+            <label class="cb-item"><input type="checkbox" checked disabled><span>updateWalletHistoryDate = true</span></label>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn-submit" onclick="submitFromCurl('v8')">送出請求</button>
+          <span class="status-dot" id="v8-status" style="display:none"></span>
+        </div>
+        <div class="panels">
+          <div>
+            <div class="panel-label">Generated cURL<div class="panel-btns"><button class="btn-mini" onclick="resetCurl('v8')">↺ Reset</button><button class="btn-mini" id="copy-v8" onclick="copyCurl('v8')">複製</button></div></div>
+            <textarea class="curl-ta" id="v8-curl-edit" spellcheck="false" oninput="markDirty('v8')"></textarea>
+          </div>
+          <div>
+            <div class="panel-label">Response <span id="v8-resp-count" style="color:#484f58"></span></div>
+            <div class="resp-container" id="v8-resp-container"><div class="resp-empty">等待請求...</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── PT 老虎機 ── -->
+      <div class="form-card" id="card-pt">
+        <div class="card-header">
+          <span class="card-title">PT 老虎機</span>
+          <span class="card-meta"><span class="method-get">GET</span> /developer/pullPtGamzoOrder</span>
+          <span class="card-meta">Provider: 17 · PT_SLOT</span>
+        </div>
+        <div class="tz-notice tz-et">⏰ 此遊戲拉單請使用 <strong>美東時間（UTC-4 / EDT）</strong></div>
+        <div class="form-grid">
+          <div class="form-group"><label>開始時間 (startDateTime)</label><input type="datetime-local" id="pt-startDate" step="1" oninput="onFormChange('pt')"><span class="hint">注意：欄位為 startDateTime</span></div>
+          <div class="form-group"><label>結束時間 (endDateTime)</label><input type="datetime-local" id="pt-endDate" step="1" oninput="onFormChange('pt')"><span class="hint">注意：欄位為 endDateTime</span></div>
+          <div class="form-group"><label>代理商 (vendor, 選填)</label><input type="text" id="pt-vendor" placeholder="可留空" oninput="onFormChange('pt')"></div>
+        </div>
+        <div class="actions">
+          <button class="btn-submit" onclick="submitFromCurl('pt')">送出請求</button>
+          <span class="status-dot" id="pt-status" style="display:none"></span>
+        </div>
+        <div class="panels">
+          <div>
+            <div class="panel-label">Generated cURL<div class="panel-btns"><button class="btn-mini" onclick="resetCurl('pt')">↺ Reset</button><button class="btn-mini" id="copy-pt" onclick="copyCurl('pt')">複製</button></div></div>
+            <textarea class="curl-ta" id="pt-curl-edit" spellcheck="false" oninput="markDirty('pt')"></textarea>
+          </div>
+          <div>
+            <div class="panel-label">Response <span id="pt-resp-count" style="color:#484f58"></span></div>
+            <div class="resp-container" id="pt-resp-container"><div class="resp-empty">等待請求...</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── KS 捕魚 ── -->
+      <div class="form-card" id="card-ks">
+        <div class="card-header">
+          <span class="card-title">KS 捕魚</span>
+          <span class="card-meta"><span class="method-post">POST</span> /developer/game/pull-order</span>
+          <span class="card-meta">Provider: 14 · KS_FISHING</span>
+        </div>
+        <div class="tz-notice tz-et">⏰ 此遊戲拉單請使用 <strong>美東時間（UTC-4 / EDT）</strong></div>
+        <div class="form-grid">
+          <div class="form-group"><label>開始時間 (startDate)</label><input type="datetime-local" id="ks-startDate" step="1" oninput="onFormChange('ks')"></div>
+          <div class="form-group"><label>結束時間 (endDate)</label><input type="datetime-local" id="ks-endDate" step="1" oninput="onFormChange('ks')"></div>
+          <div class="form-group"><label>幣別 (currency)</label><input type="text" id="ks-currency" list="currency-opts" value="CNY" autocomplete="off" oninput="onFormChange('ks')"></div>
+          <div class="form-group"><label>代理商 (vendor)</label><input type="text" id="ks-vendor" oninput="onFormChange('ks')"></div>
+        </div>
+        <div class="actions">
+          <button class="btn-submit" onclick="submitFromCurl('ks')">送出請求</button>
+          <span class="status-dot" id="ks-status" style="display:none"></span>
+        </div>
+        <div class="panels">
+          <div>
+            <div class="panel-label">Generated cURL<div class="panel-btns"><button class="btn-mini" onclick="resetCurl('ks')">↺ Reset</button><button class="btn-mini" id="copy-ks" onclick="copyCurl('ks')">複製</button></div></div>
+            <textarea class="curl-ta" id="ks-curl-edit" spellcheck="false" oninput="markDirty('ks')"></textarea>
+          </div>
+          <div>
+            <div class="panel-label">Response <span id="ks-resp-count" style="color:#484f58"></span></div>
+            <div class="resp-container" id="ks-resp-container"><div class="resp-empty">等待請求...</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── DB 捕魚 ── -->
+      <div class="form-card" id="card-dbf">
+        <div class="card-header">
+          <span class="card-title">DB 捕魚</span>
+          <span class="card-meta"><span class="method-post">POST</span> /developer/game/pull-order</span>
+          <span class="card-meta">Provider: 39 · DB_FISH</span>
+        </div>
+        <div class="tz-notice tz-et">⏰ 此遊戲拉單請使用 <strong>美東時間（UTC-4 / EDT）</strong></div>
+        <div class="form-grid">
+          <div class="form-group"><label>開始時間 (startDate)</label><input type="datetime-local" id="dbf-startDate" step="1" oninput="onFormChange('dbf')"></div>
+          <div class="form-group"><label>結束時間 (endDate)</label><input type="datetime-local" id="dbf-endDate" step="1" oninput="onFormChange('dbf')"></div>
+          <div class="form-group"><label>幣別 (currency)</label><input type="text" id="dbf-currency" list="currency-opts" value="CNY" autocomplete="off" oninput="onFormChange('dbf')"></div>
+          <div class="form-group"><label>代理商 (vendor)</label><input type="text" id="dbf-vendor" oninput="onFormChange('dbf')"></div>
+        </div>
+        <div class="actions">
+          <button class="btn-submit" onclick="submitFromCurl('dbf')">送出請求</button>
+          <span class="status-dot" id="dbf-status" style="display:none"></span>
+        </div>
+        <div class="panels">
+          <div>
+            <div class="panel-label">Generated cURL<div class="panel-btns"><button class="btn-mini" onclick="resetCurl('dbf')">↺ Reset</button><button class="btn-mini" id="copy-dbf" onclick="copyCurl('dbf')">複製</button></div></div>
+            <textarea class="curl-ta" id="dbf-curl-edit" spellcheck="false" oninput="markDirty('dbf')"></textarea>
+          </div>
+          <div>
+            <div class="panel-label">Response <span id="dbf-resp-count" style="color:#484f58"></span></div>
+            <div class="resp-container" id="dbf-resp-container"><div class="resp-empty">等待請求...</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── DB 棋牌 ── -->
+      <div class="form-card" id="card-dbc">
+        <div class="card-header">
+          <span class="card-title">DB 棋牌</span>
+          <span class="card-meta"><span class="method-post">POST</span> /developer/game/pull-order</span>
+          <span class="card-meta">Provider: 37 · DB_BOARD</span>
+        </div>
+        <div class="tz-notice tz-et">⏰ 此遊戲拉單請使用 <strong>美東時間（UTC-4 / EDT）</strong></div>
+        <div class="form-grid">
+          <div class="form-group"><label>開始時間 (startDate)</label><input type="datetime-local" id="dbc-startDate" step="1" oninput="onFormChange('dbc')"></div>
+          <div class="form-group"><label>結束時間 (endDate)</label><input type="datetime-local" id="dbc-endDate" step="1" oninput="onFormChange('dbc')"></div>
+          <div class="form-group"><label>幣別 (currency)</label><input type="text" id="dbc-currency" list="currency-opts" value="CNY" autocomplete="off" oninput="onFormChange('dbc')"></div>
+          <div class="form-group"><label>代理商 (vendor)</label><input type="text" id="dbc-vendor" oninput="onFormChange('dbc')"></div>
+        </div>
+        <div class="actions">
+          <button class="btn-submit" onclick="submitFromCurl('dbc')">送出請求</button>
+          <span class="status-dot" id="dbc-status" style="display:none"></span>
+        </div>
+        <div class="panels">
+          <div>
+            <div class="panel-label">Generated cURL<div class="panel-btns"><button class="btn-mini" onclick="resetCurl('dbc')">↺ Reset</button><button class="btn-mini" id="copy-dbc" onclick="copyCurl('dbc')">複製</button></div></div>
+            <textarea class="curl-ta" id="dbc-curl-edit" spellcheck="false" oninput="markDirty('dbc')"></textarea>
+          </div>
+          <div>
+            <div class="panel-label">Response <span id="dbc-resp-count" style="color:#484f58"></span></div>
+            <div class="resp-container" id="dbc-resp-container"><div class="resp-empty">等待請求...</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── DB 電競技 ── -->
+      <div class="form-card" id="card-pd">
+        <div class="card-header">
+          <span class="card-title">DB 電競技</span>
+          <span class="card-meta"><span class="method-post">POST</span> /developer/game/pull-order</span>
+          <span class="card-meta">Provider: 35 · DB_E_SPORT</span>
+        </div>
+        <div class="form-grid">
+          <div class="form-group"><label>開始時間 (startDate)</label><input type="datetime-local" id="pd-startDate" step="1" oninput="onFormChange('pd')"></div>
+          <div class="form-group"><label>結束時間 (endDate)</label><input type="datetime-local" id="pd-endDate" step="1" oninput="onFormChange('pd')"></div>
+          <div class="form-group"><label>幣別 (currency)</label><input type="text" id="pd-currency" list="currency-opts" value="CNY" autocomplete="off" oninput="onFormChange('pd')"></div>
+          <div class="form-group"><label>代理商 (vendor)</label><input type="text" id="pd-vendor" oninput="onFormChange('pd')"></div>
+          <div class="form-group"><label>countEffectiveAmount</label><input type="number" id="pd-countEffectiveAmount" value="1" min="0" oninput="onFormChange('pd')"><span class="hint">0 = 不計算；1 = 計算有效投注</span></div>
+        </div>
+        <div class="cb-section">
+          <div class="cb-label">布林選項 <span>固定值 · 如需調整請直接編輯下方 cURL</span></div>
+          <div class="cb-grid">
+            <label class="cb-item"><input type="checkbox" checked disabled><span>doRebate = true</span></label>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn-submit" onclick="submitFromCurl('pd')">送出請求</button>
+          <span class="status-dot" id="pd-status" style="display:none"></span>
+        </div>
+        <div class="panels">
+          <div>
+            <div class="panel-label">Generated cURL<div class="panel-btns"><button class="btn-mini" onclick="resetCurl('pd')">↺ Reset</button><button class="btn-mini" id="copy-pd" onclick="copyCurl('pd')">複製</button></div></div>
+            <textarea class="curl-ta" id="pd-curl-edit" spellcheck="false" oninput="markDirty('pd')"></textarea>
+          </div>
+          <div>
+            <div class="panel-label">Response <span id="pd-resp-count" style="color:#484f58"></span></div>
+            <div class="resp-container" id="pd-resp-container"><div class="resp-empty">等待請求...</div></div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /main -->
+  </div><!-- /content -->
+</div><!-- /layout -->
+
+<script src="domain-config.js"></script>
+<script>
+// ═══════════════════════════════════════════
+//  Config
+// ═══════════════════════════════════════════
+const TABS         = ['ky','v8','pt','ks','dbf','dbc','pd'];
+const MAX_RESULTS  = 5;
+
+const dirty      = Object.fromEntries(TABS.map(t => [t, false]));
+const tabResults = Object.fromEntries(TABS.map(t => [t, []]));
+
+const $      = id  => document.getElementById(id);
+const getVal = id  => $(id)?.value?.trim() ?? '';
+
+// ── 取得 Base URL（不觸發 alert，僅在送出時才驗證）──
+function getBaseUrlSafe() {
+  const sel   = $('domainUrlSelect');
+  const input = $('domainUrl');
+  if (!sel || !sel.value || sel.value === '') return null;
+  const d = (sel.value === '__custom__' ? (input?.value ?? '') : sel.value).trim().replace(/\/$/, '');
+  return d ? d + '/platform/thirdparty' : null;
+}
+function getBaseUrlStrict() {
+  const base = getBaseUrlSafe();
+  if (!base) { alert('請先選擇 Domain URL'); throw new Error('no domain'); }
+  return base;
+}
+function getDevKey() { return getVal('devKey'); }
+
+// ── Dev Key ──────────────────────────────────
+async function fetchDevKey() {
+  const st = $('keyStatus');
+  st.textContent = '取得中...'; st.style.color = '#e3b341';
+  try {
+    const res  = await fetch('https://tiger-dev.servicelab.sh/platform/sysmaintenance/devKey');
+    const json = await res.json();
+    const key  = json?.data?.key;
+    if (!key) throw new Error('回傳格式異常');
+    $('devKey').value = key;
+    st.textContent = '✓ 取得成功'; st.style.color = '#34d399';
+    refreshAllCurls();
+  } catch(e) {
+    st.textContent = '✗ ' + e.message; st.style.color = '#f87171';
+  }
+}
+
+// ── Tab switching ────────────────────────────
+function switchTab(name) {
+  TABS.forEach(t => {
+    $('tab-'  + t)?.classList.toggle('active', t === name);
+    $('card-' + t)?.classList.toggle('active', t === name);
+  });
+}
+
+// ── Dirty flag ───────────────────────────────
+function markDirty(tab)  { dirty[tab] = true;  $(tab+'-curl-edit')?.classList.add('dirty'); }
+function clearDirty(tab) { dirty[tab] = false; $(tab+'-curl-edit')?.classList.remove('dirty'); }
+function onFormChange(tab) { if (!dirty[tab]) setCurlText(tab, CURL_BUILDERS[tab]()); }
+function setCurlText(tab, text) { const ta = $(tab+'-curl-edit'); if (ta) ta.value = text; }
+function resetCurl(tab)  { clearDirty(tab); setCurlText(tab, CURL_BUILDERS[tab]()); }
+function refreshAllCurls() { TABS.forEach(t => { if (!dirty[t]) setCurlText(t, CURL_BUILDERS[t]()); }); }
+
+// ── Helpers ──────────────────────────────────
+function fmtDt(v) {
+  if (!v) return '';
+  let s = v.replace('T', ' ');
+  if ((s.split(' ')[1] || '').split(':').length < 3) s += ':00';
+  return s;
+}
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmtJson(obj) {
+  return escHtml(JSON.stringify(obj,null,2))
+    .replace(/"([^"]+)":/g,'<span class="jk">"$1"</span>:')
+    .replace(/: "([^"]*)"/g,': <span class="jv">"$1"</span>')
+    .replace(/: (true)/g,': <span class="jb">$1</span>')
+    .replace(/: (false)/g,': <span class="jnb">$1</span>')
+    .replace(/: (null)/g,': <span class="jnb">$1</span>')
+    .replace(/: (-?\d+\.?\d*)/g,': <span class="jn">$1</span>');
+}
+function vendorOf(tab) { return getVal(tab+'-vendor') || getVal('globalVendor'); }
+
+// ── cURL Builders ────────────────────────────
+function postCurl(url, body) {
+  return `curl --location --globoff \\\n  '${url}' \\\n  --header 'Content-Type: application/json' \\\n  --data '${JSON.stringify(body,null,4)}'`;
+}
+
+function buildKyCurl() {
+  const base = getBaseUrlSafe() || '{{baseUrl}}/platform/thirdparty';
+  const key  = getDevKey() || '{{devKey}}', vendor = vendorOf('ky');
+  return postCurl(`${base}/developer/ky/pull-again?key=${key}`, {
+    startDate: fmtDt(getVal('ky-startDate')), endDate: fmtDt(getVal('ky-endDate')),
+    currency: getVal('ky-currency'), vendor,
+    resendKafkaBetUpdate:true, resendKafkaWalletHistory:true,
+    resendEffectiveAnte:true, resendRebate:true, updateWalletHistoryDate:true
+  });
+}
+function buildV8Curl() {
+  const base = getBaseUrlSafe() || '{{baseUrl}}/platform/thirdparty';
+  const key = getDevKey() || '{{devKey}}', vendor = vendorOf('v8');
+  return postCurl(`${base}/developer/v8/pull-again?key=${key}`, {
+    startDate: fmtDt(getVal('v8-startDate')), endDate: fmtDt(getVal('v8-endDate')),
+    currency: getVal('v8-currency'), vendor, vendors: vendor ? [vendor] : [],
+    resendKafkaBetUpdate:true, resendKafkaWalletHistory:true,
+    resendEffectiveAnte:true, resendRebate:true, updateWalletHistoryDate:true
+  });
+}
+function buildPtCurl() {
+  const base = getBaseUrlSafe() || '{{baseUrl}}/platform/thirdparty';
+  const key = getDevKey() || '{{devKey}}';
+  const start = fmtDt(getVal('pt-startDate')), end = fmtDt(getVal('pt-endDate')), vendor = vendorOf('pt');
+  const p = new URLSearchParams({ key });
+  if (start)  p.set('startDateTime', start);
+  if (end)    p.set('endDateTime', end);
+  if (vendor) p.set('vendor', vendor);
+  return `curl --location --globoff \\\n  '${base}/developer/pullPtGamzoOrder?${p}' \\\n  --header 'Content-Type: application/json'`;
+}
+function buildPullOrderCurl(tab, provider) {
+  const base = getBaseUrlSafe() || '{{baseUrl}}/platform/thirdparty';
+  const key = getDevKey() || '{{devKey}}';
+  return postCurl(`${base}/developer/game/pull-order?key=${key}`, {
+    vendor:    vendorOf(tab),
+    currency:  getVal(tab+'-currency'),
+    provider,
+    startDate: fmtDt(getVal(tab+'-startDate')),
+    endDate:   fmtDt(getVal(tab+'-endDate')),
+  });
+}
+
+function buildPdCurl() {
+  const base = getBaseUrlSafe() || '{{baseUrl}}/platform/thirdparty';
+  const key = getDevKey() || '{{devKey}}';
+  return postCurl(`${base}/developer/game/pull-order?key=${key}`, {
+    vendor:                vendorOf('pd'),
+    currency:              getVal('pd-currency'),
+    provider:              35,
+    startDate:             fmtDt(getVal('pd-startDate')),
+    endDate:               fmtDt(getVal('pd-endDate')),
+    countEffectiveAmount:  Number(getVal('pd-countEffectiveAmount') || 1),
+    doRebate:              true,
+  });
+}
+
+const CURL_BUILDERS = {
+  ky:  buildKyCurl,
+  v8:  buildV8Curl,
+  pt:  buildPtCurl,
+  ks:  () => buildPullOrderCurl('ks',  14),
+  dbf: () => buildPullOrderCurl('dbf', 39),
+  dbc: () => buildPullOrderCurl('dbc', 37),
+  pd:  buildPdCurl,
+};
+
+// ── cURL Parser ──────────────────────────────
+function parseCurlToFetch(curlStr) {
+  const flat = curlStr.replace(/\\\s*\n\s*/g,' ').trim();
+  const urlM = flat.match(/'(https?:\/\/[^']+)'/);
+  if (!urlM) return null;
+  const url = urlM[1], hasData = /--data\s+'/.test(flat), method = hasData ? 'POST' : 'GET';
+  const headers = {}; const hRe = /--header\s+'([^:]+):\s*([^']+)'/g; let hm;
+  while ((hm = hRe.exec(flat)) !== null) headers[hm[1].trim()] = hm[2].trim();
+  let body = null;
+  if (hasData) { const dM = flat.match(/--data\s+'([\s\S]*)'$/); if (dM) body = dM[1]; }
+  return { url, method, headers, body };
+}
+function extractDates(p) {
+  if (p.method === 'GET') { try { const u = new URL(p.url); return { startDt: u.searchParams.get('startDateTime'), endDt: u.searchParams.get('endDateTime') }; } catch { return {}; } }
+  try { const b = JSON.parse(p.body||'{}'); return { startDt: b.startDate, endDt: b.endDate }; } catch { return {}; }
+}
+// ── Result management ────────────────────────
+function pushResult(tab, item) {
+  const arr = tabResults[tab]; arr.unshift(item);
+  if (arr.length > MAX_RESULTS) arr.length = MAX_RESULTS;
+  renderResults(tab);
+}
+function clearResults(tab) { tabResults[tab]=[]; renderResults(tab); }
+function renderResults(tab) {
+  const el=$(tab+'-resp-container'), cnt=$(tab+'-resp-count'), arr=tabResults[tab];
+  if (!el) return;
+  if (cnt) cnt.textContent = arr.length ? `(最新 ${arr.length} 筆)` : '';
+  if (!arr.length) { el.innerHTML='<div class="resp-empty">等待請求...</div>'; return; }
+  el.innerHTML = arr.map((r,i) => `
+    <div class="result-item${i===0?' newest':''}">
+      <div class="result-meta">
+        ${r.start?`<span class="result-range">${r.start} → ${r.end}</span>`:''}
+        <span class="status-dot status-${r.statusType}" style="margin-left:auto;padding:2px 8px">${r.statusText}</span>
+      </div>
+      <div class="result-body">${r.html}</div>
+    </div>`).join('');
+}
+
+// ── Execute ──────────────────────────────────
+async function runOnce(tab, parsed, startDt, endDt) {
+  try {
+    const opts = { method: parsed.method, headers: parsed.headers };
+    if (parsed.body) opts.body = parsed.body;
+    const res  = await fetch(parsed.url, opts);
+    const text = await res.text();
+    let html; try { html = fmtJson(JSON.parse(text)); } catch { html = escHtml(text); }
+    const sType = res.ok?'ok':'err', sTxt=`HTTP ${res.status}`;
+    pushResult(tab, { start:startDt, end:endDt, statusType:sType, statusText:sTxt, html });
+    setStatus(tab, sType, sTxt);
+  } catch(err) {
+    const html = `<span style="color:#f85149">Error: ${escHtml(err.message)}\n(若為 CORS 錯誤請在同域或使用允跨域擴充套件執行)</span>`;
+    pushResult(tab, { start:startDt, end:endDt, statusType:'err', statusText:'失敗', html });
+    setStatus(tab,'err','請求失敗');
+  }
+}
+
+async function submitFromCurl(tab) {
+  const curlText = $(tab+'-curl-edit')?.value?.trim()||'';
+  if (!curlText) { alert('cURL 內容為空'); return; }
+  if (curlText.includes('{{baseUrl}}')) { alert('請先選擇 Domain URL'); return; }
+  if (curlText.includes('{{devKey}}'))  { alert('請先點擊「🔑 取得」按鈕取得 Dev Key'); return; }
+  const parsed = parseCurlToFetch(curlText);
+  if (!parsed) { alert('無法解析 cURL，請確認格式'); return; }
+  const { startDt, endDt } = extractDates(parsed);
+  const btn = $('card-'+tab)?.querySelector('.btn-submit'); if (btn) btn.disabled=true;
+  setStatus(tab,'loading','請求中...');
+  await runOnce(tab, parsed, startDt||'', endDt||'');
+  if (btn) btn.disabled=false;
+}
+
+function setStatus(tab, type, msg) {
+  const el = $(tab+'-status'); if (!el) return;
+  el.style.display='inline-flex'; el.className=`status-dot status-${type}`; el.textContent=msg;
+}
+async function copyCurl(tab) {
+  const ta = $(tab+'-curl-edit'); if (!ta?.value) return;
+  try {
+    await navigator.clipboard.writeText(ta.value);
+    const btn = $('copy-'+tab);
+    if (btn) { btn.textContent='已複製!'; setTimeout(()=>{ btn.textContent='複製'; },1500); }
+  } catch { alert('複製失敗，請手動選取'); }
+}
+
+// ── Init ─────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  renderDomainSelect('domain-select-container');
+
+  // 同步 globalVendor 到各 tab vendor 欄位
+  $('globalVendor')?.addEventListener('input', () => {
+    const v = getVal('globalVendor');
+    TABS.forEach(t => {
+      const el = $(t+'-vendor');
+      if (el && !el.value) el.placeholder = v || 'DE1';
+    });
+    refreshAllCurls();
+  });
+
+  // domain 選完後刷新 curls（不觸發 alert）
+  const _orig = window.onDomainSelectChange;
+  window.onDomainSelectChange = function() { _orig(); refreshAllCurls(); };
+
+  // 預設日期：今天 00:00:00 ~ 23:59:59
+  const pad = n => String(n).padStart(2,'0');
+  const now = new Date();
+  const todayStart = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T00:00:00`;
+  const todayEnd   = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T23:59:59`;
+  TABS.forEach(t => {
+    const s = $(t+'-startDate'), e = $(t+'-endDate');
+    if (s && !s.value) s.value = todayStart;
+    if (e && !e.value) e.value = todayEnd;
+  });
+
+  // 初始化 cURL（domain 未選時顯示佔位符）
+  refreshAllCurls();
+});
+</script>
+</body>
+</html>

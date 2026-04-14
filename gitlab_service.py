@@ -59,6 +59,17 @@ class GitLabService:
         resp = requests.get(url, headers=self.headers, timeout=30)
         return resp.status_code == 200
 
+    def find_project_id_by_name(self, name: str) -> int | None:
+        """在 group 內依完整名稱搜尋，回傳 project_id 或 None"""
+        url = f"{self.base_url}/api/v4/groups/{quote(self.group, safe='')}/projects"
+        params = {"search": name, "per_page": 20, "include_subgroups": True}
+        resp = requests.get(url, headers=self.headers, params=params, timeout=30)
+        resp.raise_for_status()
+        for p in resp.json():
+            if p["name"] == name:
+                return p["id"]
+        return None
+
     def create_branch(self, project_id: int, branch_name: str, ref: str) -> Dict:
         url = f"{self.base_url}/api/v4/projects/{project_id}/repository/branches"
         data = {"branch": branch_name, "ref": ref}

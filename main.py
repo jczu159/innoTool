@@ -1,4 +1,5 @@
 import os
+import re
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import tkinter as tk
@@ -168,6 +169,7 @@ class App(tk.Tk):
             ("單筆切 Branch",     self._on_single_branch),
             ("批次一鍵切 Branch", self._on_batch_branch),
             ("全選 / 全不選",     self._on_toggle_all),
+            ("同步 GAME/COMMON",  self._on_sync_game_common),
         ]
         for text, cmd in buttons:
             ttk.Button(bar, text=text, command=cmd, width=16).pack(side=tk.LEFT, padx=3)
@@ -307,6 +309,134 @@ class App(tk.Tk):
         for p in self.projects:
             p.checked = target
         self._refresh_table()
+
+    # ── Pom helpers ───────────────────────────
+    def _parse_pom_version(self, pom_path: str, tag: str) -> str | None:
+        """從 pom.xml 讀取 <tag>v?x.y.z</tag>，回傳不含 v 的版本字串"""
+        try:
+            with open(pom_path, encoding="utf-8") as f:
+                content = f.read()
+            m = re.search(rf'<{re.escape(tag)}>v?(\d+\.\d+\.\d+)</{re.escape(tag)}>', content)
+            return m.group(1) if m else None
+        except Exception:
+            return None
+
+    def _update_pom_version(self, pom_path: str, tag: str, new_ver: str) -> bool:
+        """將 pom.xml 內 <tag> 的版本改為 v{new_ver}，回傳是否有實際變更"""
+        try:
+            with open(pom_path, encoding="utf-8") as f:
+                content = f.read()
+            new_content = re.sub(
+                rf'<{re.escape(tag)}>v?\d+\.\d+\.\d+</{re.escape(tag)}>',
+                f'<{tag}>v{new_ver}</{tag}>',
+                content,
+            )
+            if new_content == content:
+                return False
+            with open(pom_path, "w", encoding="utf-8") as f:
+                f.write(new_content)
+            return True
+        except Exception:
+            return False
+
+    @staticmethod
+    def _ver_tuple(ver: str) -> tuple:
+        return tuple(int(x) for x in ver.strip().lstrip("v").split("."))
+
+    # ── Sync GAME/COMMON ──────────────────────
+    def _on_sync_game_common(self):
+        targets = [p for p in self.projects if p.checked]
+        if not targets:
+            messagebox.showinfo("提示", "請勾選至少一個專案")
+            return
+        svc = self._make_gitlab()
+        if not svc:
+            return
+
+        def _get_project_id(name: str) -> int | None:
+            """先從已載入清單找，找不到再打 API"""
+            found = next((p for p in self.projects if p.name == name), None)
+            if found:
+                return found.project_id
+            try:
+                return svc.find_project_id_by_name(name)
+            except Exception:
+                return None
+
+        def _resolve_latest(lib_name: str, pom_tag: str) -> str | None:
+            """
+            取 API 最新 tag 版本 與 本地 pom.xml 版本，回傳較高者。
+            任一來源取得失敗時只用另一方；兩者都失敗回傳 None。
+            """
+            # ── API tag ──────────────────────
+            api_ver = None
+            pid = _get_project_id(lib_name)
+            if pid:
+                try:
+                    tags   = svc.get_tags(pid)
+                    latest = vp.get_latest_tag(tags)
+                    if latest:
+                        m = re.match(r'^release-(\d+\.\d+\.\d+)$', latest)
+                        if m:
+                            api_ver = m.group(1)
+                            self.after(0, lambda lv=api_ver: self.log_inf(
+                                f"{lib_name}: API 最新 tag = release-{lv}"))
+                except Exception as e:
+                    self.after(0, lambda ex=e: self.log_err(f"{lib_name}: 取 API tag 失敗: {ex}"))
+
+            # ── 本地 pom ─────────────────────
+            local_pom = os.path.join(self._resolve_path(lib_name), "pom.xml")
+            local_ver = self._parse_pom_version(local_pom, pom_tag)
+            if local_ver:
+                self.after(0, lambda lv=local_ver: self.log_inf(
+                    f"{lib_name}: 本地 pom.xml <{pom_tag}> = v{lv}"))
+            else:
+                self.after(0, lambda: self.log_err(
+                    f"{lib_name}: 無法讀取本地 pom.xml ({local_pom})"))
+
+            # ── 取較高版本 ───────────────────
+            candidates = [v for v in (api_ver, local_ver) if v]
+            if not candidates:
+                return None
+            return max(candidates, key=self._ver_tuple)
+
+        def worker():
+            libs = [
+                ("tiger-common", "tiger.common.version"),
+                ("tiger-game",   "tiger.game.version"),
+            ]
+            for lib_name, pom_tag in libs:
+                self.after(0, lambda n=lib_name: self.log_inf(f"── 開始比對 {n} ──"))
+                best_ver = _resolve_latest(lib_name, pom_tag)
+                if not best_ver:
+                    self.after(0, lambda n=lib_name: self.log_err(
+                        f"{n}: 無法取得版本資訊，跳過"))
+                    continue
+                self.after(0, lambda n=lib_name, v=best_ver: self.log_inf(
+                    f"{n}: 採用版本 v{v}"))
+
+                for p in targets:
+                    pom_path = os.path.join(p.local_path, "pom.xml")
+                    cur_ver  = self._parse_pom_version(pom_path, pom_tag)
+                    if cur_ver is None:
+                        self.after(0, lambda pn=p.name, t=pom_tag: self.log_err(
+                            f"{pn}: pom.xml 找不到 <{t}>，跳過"))
+                        continue
+                    if self._ver_tuple(cur_ver) == self._ver_tuple(best_ver):
+                        self.after(0, lambda pn=p.name, v=cur_ver: self.log_inf(
+                            f"{pn}: 已是 v{v}，無需更新"))
+                        continue
+                    changed = self._update_pom_version(pom_path, pom_tag, best_ver)
+                    if changed:
+                        self.after(0, lambda pn=p.name, ov=cur_ver, nv=best_ver, t=pom_tag: self.log_ok(
+                            f"{pn}: <{t}>  v{ov}  →  v{nv}"))
+                    else:
+                        self.after(0, lambda pn=p.name: self.log_err(
+                            f"{pn}: 更新 pom.xml 失敗"))
+
+            self.after(0, lambda: self.log_inf("同步完成"))
+
+        threading.Thread(target=worker, daemon=True).start()
 
     # ── GitLab helper ─────────────────────────
     def _make_gitlab(self) -> gl_svc.GitLabService | None:
@@ -476,14 +606,14 @@ class App(tk.Tk):
                      f"{p.name}: fetch tags"),
                     (lambda pr=p: git.create_branch_from_tag(pr.new_branch, pr.latest_tag),
                      f"{p.name}: checkout -b {p.new_branch} tags/{p.latest_tag}"),
-                    (lambda pr=p: git.push_branch(pr.new_branch),
-                     f"{p.name}: push origin {p.new_branch}"),
+                    (lambda pr=p: git.update_version_properties(pr.new_branch),
+                     f"{p.name}: 更新 version.properties"),
                 ]
                 success = True
                 for fn, desc in steps:
                     ok, out = fn()
                     if ok:
-                        self.after(0, lambda d=desc: self.log_ok(d))
+                        self.after(0, lambda d=desc, o=out: self.log_ok(f"{d}" + (f"  →  {o}" if o else "")))
                     else:
                         self.after(0, lambda d=desc, o=out: self.log_err(f"{d} 失敗: {o}"))
                         success = False

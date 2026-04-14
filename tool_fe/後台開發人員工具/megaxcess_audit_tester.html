@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <title>MegaXcess Audit Tester</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; padding: 28px; }
+
+    h1 { font-size: 1.2rem; font-weight: 700; color: #f8fafc; margin-bottom: 20px; }
+
+    .env-tabs { display: flex; gap: 8px; margin-bottom: 18px; }
+    .env-tab { padding: 7px 28px; border-radius: 6px; border: 1px solid #334155; background: #1e293b; color: #64748b; cursor: pointer; font-size: 0.9rem; font-weight: 600; }
+    .env-tab.uat { border-color: #2563eb; background: #1e3a5f; color: #60a5fa; }
+    .env-tab.prod { border-color: #dc2626; background: #3b1f1f; color: #f87171; }
+
+    .panel { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 18px; margin-bottom: 14px; }
+
+    .row { display: flex; gap: 12px; margin-bottom: 12px; align-items: flex-end; }
+    .row:last-child { margin-bottom: 0; }
+    .field { flex: 1; }
+    .field.w2 { flex: 2; }
+
+    label { display: block; font-size: 0.72rem; color: #64748b; margin-bottom: 4px; font-weight: 500; }
+    input, textarea {
+      width: 100%; padding: 8px 10px; background: #0f172a; border: 1px solid #334155;
+      border-radius: 6px; color: #e2e8f0; font-size: 0.85rem; outline: none;
+    }
+    input:focus, textarea:focus { border-color: #3b82f6; }
+
+    .quick-btns { display: flex; gap: 6px; }
+    .qbtn { padding: 8px 14px; border-radius: 6px; border: 1px solid #334155; background: #1e293b; color: #94a3b8; cursor: pointer; font-size: 0.8rem; }
+    .qbtn:hover { border-color: #475569; color: #e2e8f0; }
+
+    .send-btn {
+      width: 100%; padding: 12px; border-radius: 8px; border: none;
+      background: #2563eb; color: white; font-size: 1rem; font-weight: 700;
+      cursor: pointer; margin-bottom: 14px;
+    }
+    .send-btn:hover { background: #1d4ed8; }
+    .send-btn:disabled { background: #1e3a5f; color: #475569; cursor: not-allowed; }
+
+    .response-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .status-pill { padding: 3px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; }
+    .s2xx { background: #166534; color: #86efac; }
+    .s4xx, .serr { background: #7f1d1d; color: #fca5a5; }
+    .elapsed { font-size: 0.72rem; color: #475569; margin-left: auto; }
+
+    .response-box {
+      background: #020617; border: 1px solid #1e293b; border-radius: 8px;
+      padding: 14px; font-family: 'Consolas', monospace; font-size: 0.78rem;
+      color: #94a3b8; max-height: 520px; overflow: auto; white-space: pre-wrap; word-break: break-all;
+    }
+    .response-box.ok { border-color: #166534; color: #86efac; }
+    .response-box.err { border-color: #7f1d1d; color: #fca5a5; }
+
+    .spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid #334155; border-top-color: #fff; border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; margin-right: 6px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<h1>MegaXcess Audit Tester</h1>
+
+<div class="env-tabs">
+  <button class="env-tab uat" id="tab-uat" onclick="switchEnv('uat')">UAT</button>
+  <button class="env-tab" id="tab-prod" onclick="switchEnv('prod')">PROD</button>
+</div>
+
+<div class="panel">
+  <div class="row">
+    <div class="field w2">
+      <label>Base URL</label>
+      <input id="baseUrl" value="http://gpt-3rdreport.ycmpos.com/platform/thirdparty-report">
+    </div>
+    <div class="field">
+      <label>Currency</label>
+      <input id="currency" value="PHP">
+    </div>
+  </div>
+  <div class="row">
+    <div class="field">
+      <label>Authorization (Bearer Token)</label>
+      <input id="authToken" placeholder="Bearer eyJhbGci...">
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="row">
+    <div class="field">
+      <label>From Date</label>
+      <input type="datetime-local" id="fromDate" step="60">
+    </div>
+    <div class="field">
+      <label>To Date</label>
+      <input type="datetime-local" id="toDate" step="60">
+    </div>
+    <div class="quick-btns">
+      <button class="qbtn" onclick="setToday()">今天</button>
+      <button class="qbtn" onclick="setYesterday()">昨天</button>
+    </div>
+  </div>
+  <div class="row">
+    <div class="field">
+      <label>Page Number</label>
+      <input type="number" id="pageNumber" value="1" min="1">
+    </div>
+    <div class="field">
+      <label>Page Size</label>
+      <input type="number" id="pageSize" value="5000" min="1" max="5000">
+    </div>
+  </div>
+</div>
+
+<button class="send-btn" id="sendBtn" onclick="sendRequest()">發送請求</button>
+
+<div id="responseSection" style="display:none;">
+  <div class="response-header">
+    <span class="status-pill" id="statusPill"></span>
+    <span id="elapsed" class="elapsed"></span>
+  </div>
+  <div class="response-box" id="responseBox"></div>
+</div>
+
+<script>
+  const ENV = {
+    uat: {
+      baseUrl: 'http://gpt-3rdreport.ycmpos.com/platform/thirdparty-report',
+      apiId: 'globalplay-stg-001',
+      apiKey: 'qEKWQqMXfoW2gzNFQEFeGNuUocywCcRG',
+      referer: 'https://tiger-admin-vd014-uat.servicelab.sh'
+    },
+    prod: {
+      baseUrl: 'http://gpt-3rdreport.yjygfwh.com/platform/thirdparty-report',
+      apiId: 'globalplay-prd-001',
+      apiKey: 'WtHJSKW3uEZbojCHwq3TRtpQJXpAHnFX',
+      referer: 'https://gpt-3rdreport.yjygfwh.com'
+    }
+  };
+
+  let env = 'uat';
+
+  function switchEnv(e) {
+    env = e;
+    const cfg = ENV[e];
+    document.getElementById('baseUrl').value = cfg.baseUrl;
+    document.getElementById('tab-uat').className = 'env-tab' + (e === 'uat' ? ' uat' : '');
+    document.getElementById('tab-prod').className = 'env-tab' + (e === 'prod' ? ' prod' : '');
+    document.getElementById('responseSection').style.display = 'none';
+  }
+
+  async function sha256(str) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+  }
+
+  function fmt(dtLocal) {
+    if (!dtLocal) return '';
+    const [d, t] = dtLocal.split('T');
+    return `${d} ${(t||'00:00').length === 5 ? t+':00' : t}`;
+  }
+
+  // 自動偵測是否透過 proxy 開啟（localhost:8765）
+  const USE_PROXY = location.hostname === 'localhost';
+
+  async function sendRequest() {
+    const fromDate = fmt(document.getElementById('fromDate').value);
+    const toDate = fmt(document.getElementById('toDate').value);
+    const pageNumber = document.getElementById('pageNumber').value;
+    const pageSize = document.getElementById('pageSize').value;
+    const baseUrl = document.getElementById('baseUrl').value.trim();
+    const currency = document.getElementById('currency').value.trim();
+    const authToken = document.getElementById('authToken').value.trim();
+
+    if (!fromDate || !toDate) { alert('請填寫日期範圍'); return; }
+
+    const cfg = ENV[env];
+    const hash = await sha256(cfg.apiId + fromDate + toDate + pageSize + cfg.apiKey);
+
+    const targetUrl = `${baseUrl}/api/v1/mgx/audit` +
+      `?api_id=${encodeURIComponent(cfg.apiId)}` +
+      `&hash_code=${hash}` +
+      `&from_date=${encodeURIComponent(fromDate)}` +
+      `&to_date=${encodeURIComponent(toDate)}` +
+      `&page_number=${pageNumber}` +
+      `&page_size=${pageSize}`;
+
+    const reqHeaders = {
+      'Content-Type': 'application/json',
+      'Referer': cfg.referer,
+      'currency': currency,
+      'x-forwarded-for': '61.216.90.1',
+      ...(authToken ? { 'Authorization': authToken } : {})
+    };
+
+    const btn = document.getElementById('sendBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>發送中...';
+
+    document.getElementById('responseSection').style.display = 'block';
+    document.getElementById('responseBox').textContent = '等待回應...';
+    document.getElementById('responseBox').className = 'response-box';
+    document.getElementById('statusPill').textContent = '';
+    document.getElementById('elapsed').textContent = '';
+
+    const t0 = Date.now();
+    try {
+      let res, text;
+      if (USE_PROXY) {
+        // 透過本地 proxy 轉發，解決 CORS
+        res = await fetch('/proxy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: targetUrl, headers: reqHeaders })
+        });
+        text = await res.text();
+      } else {
+        // 直接打（可能 CORS 失敗）
+        res = await fetch(targetUrl, { method: 'GET', headers: reqHeaders });
+        text = await res.text();
+      }
+
+      const ms = Date.now() - t0;
+      let pretty = text;
+      try { pretty = JSON.stringify(JSON.parse(text), null, 2); } catch(e) {}
+
+      const pill = document.getElementById('statusPill');
+      pill.textContent = `HTTP ${res.status}`;
+      pill.className = 'status-pill ' + (res.ok ? 's2xx' : 's4xx');
+      document.getElementById('elapsed').textContent = `${ms} ms`;
+      const box = document.getElementById('responseBox');
+      box.textContent = pretty;
+      box.className = 'response-box ' + (res.ok ? 'ok' : 'err');
+    } catch(err) {
+      const ms = Date.now() - t0;
+      document.getElementById('statusPill').textContent = 'ERROR';
+      document.getElementById('statusPill').className = 'status-pill serr';
+      document.getElementById('elapsed').textContent = `${ms} ms`;
+      const box = document.getElementById('responseBox');
+      box.textContent = `❌ 請用 megaxcess_start.bat 啟動後再試\n\n${err.message}\n\nURL:\n${targetUrl}`;
+      box.className = 'response-box err';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '發送請求';
+    }
+  }
+
+  function pad(n) { return String(n).padStart(2,'0'); }
+  function dateStr(d) { return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+
+  function setToday() {
+    const d = dateStr(new Date());
+    document.getElementById('fromDate').value = `${d}T00:00`;
+    document.getElementById('toDate').value = `${d}T23:59`;
+  }
+  function setYesterday() {
+    const y = new Date(); y.setDate(y.getDate()-1);
+    const d = dateStr(y);
+    document.getElementById('fromDate').value = `${d}T00:00`;
+    document.getElementById('toDate').value = `${d}T23:59`;
+  }
+
+  setYesterday();
+</script>
+</body>
+</html>

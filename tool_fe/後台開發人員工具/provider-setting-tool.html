@@ -1,0 +1,1475 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Provider Setting Tool</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --sidebar: #1e293b;
+    --card: #1e293b;
+    --border: #334155;
+    --blue: #3b82f6;
+    --blue-dark: #2563eb;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --muted2: #94a3b8;
+    --success: #059669;
+    --success-dark: #047857;
+    --danger: #dc2626;
+    --danger-dark: #b91c1c;
+    --purple: #7c3aed;
+    --purple-dark: #6d28d9;
+    --yellow: #d97706;
+    --input-bg: #0f172a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    background: var(--sidebar);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  header h1 {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  header .badge {
+    background: var(--blue);
+    color: #fff;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+  }
+
+  .layout {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    height: calc(100vh - 53px);
+  }
+
+  /* Sidebar */
+  .sidebar {
+    width: 320px;
+    min-width: 320px;
+    background: var(--sidebar);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 20px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .sidebar-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-bottom: 2px;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .form-group label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted2);
+  }
+
+  input[type="text"], input[type="number"], textarea, select {
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 13px;
+    padding: 8px 10px;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  input[type="text"]:focus, input[type="number"]:focus, textarea:focus, select:focus {
+    border-color: var(--blue);
+  }
+
+  input[type="text"]::placeholder, input[type="number"]::placeholder, textarea::placeholder {
+    color: var(--muted);
+  }
+
+  select option {
+    background: var(--sidebar);
+    color: var(--text);
+  }
+
+  .custom-vendor-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    margin-top: 4px;
+  }
+
+  .custom-vendor-row label {
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .divider {
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* Main */
+  .main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0;
+    flex-shrink: 0;
+  }
+
+  .tab-btn {
+    background: none;
+    border: none;
+    color: var(--muted2);
+    font-size: 14px;
+    font-weight: 500;
+    padding: 10px 18px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color 0.15s, border-color 0.15s;
+  }
+
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active {
+    color: var(--blue);
+    border-bottom-color: var(--blue);
+  }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: flex; flex-direction: column; gap: 16px; }
+
+  /* Cards */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+  }
+
+  .card-header {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-header .count-badge {
+    background: var(--blue);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 10px;
+    margin-left: auto;
+  }
+
+  /* Info box */
+  .info-box {
+    border-left: 3px solid var(--blue);
+    background: rgba(59,130,246,0.08);
+    border-radius: 0 6px 6px 0;
+    padding: 10px 14px;
+    font-size: 12px;
+    color: var(--muted2);
+    line-height: 1.6;
+  }
+
+  .info-box code {
+    background: rgba(59,130,246,0.15);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-size: 11px;
+    color: #93c5fd;
+    font-family: monospace;
+  }
+
+  /* Buttons */
+  .btn {
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 14px;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .btn:active { transform: scale(0.98); }
+  .btn-blue { background: var(--blue); color: #fff; }
+  .btn-blue:hover { background: var(--blue-dark); }
+  .btn-green { background: var(--success); color: #fff; }
+  .btn-green:hover { background: var(--success-dark); }
+  .btn-red { background: var(--danger); color: #fff; }
+  .btn-red:hover { background: var(--danger-dark); }
+  .btn-purple { background: var(--purple); color: #fff; }
+  .btn-purple:hover { background: var(--purple-dark); }
+  .btn-gray { background: #334155; color: var(--text); }
+  .btn-gray:hover { background: #475569; }
+  .btn-icon {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted2);
+    border-radius: 5px;
+    padding: 4px 7px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background 0.15s, color 0.15s;
+  }
+  .btn-icon:hover { background: var(--border); color: var(--text); }
+  .btn-icon.danger:hover { background: rgba(220,38,38,0.15); color: var(--danger); border-color: var(--danger); }
+
+  .btn-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  /* Form grid */
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .form-grid .full { grid-column: 1 / -1; }
+
+  /* Area checkboxes */
+  .area-group-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--muted);
+    margin: 8px 0 4px;
+  }
+
+  .area-grid {
+    max-height: 260px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px;
+    background: var(--input-bg);
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 4px;
+  }
+
+  .area-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 7px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.12s;
+    font-size: 12px;
+  }
+
+  .area-item:hover { background: rgba(59,130,246,0.1); }
+
+  .area-item input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+    accent-color: var(--blue);
+  }
+
+  .area-item .area-name { color: var(--text); font-weight: 500; }
+  .area-item .currency-badge {
+    background: rgba(59,130,246,0.18);
+    color: #93c5fd;
+    font-size: 10px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: monospace;
+  }
+
+  .area-group-separator {
+    grid-column: 1 / -1;
+    height: 1px;
+    background: var(--border);
+    margin: 6px 0;
+  }
+
+  .area-group-header {
+    grid-column: 1 / -1;
+  }
+
+  /* Row table */
+  .table-wrap { overflow-x: auto; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+
+  table th {
+    background: rgba(51,65,85,0.6);
+    color: var(--muted2);
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 8px 10px;
+    text-align: left;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+
+  table td {
+    padding: 7px 10px;
+    border-bottom: 1px solid rgba(51,65,85,0.5);
+    color: var(--text);
+    vertical-align: middle;
+  }
+
+  table tr:hover td { background: rgba(59,130,246,0.05); }
+
+  table td.mono { font-family: monospace; font-size: 11px; color: #93c5fd; }
+  table td.muted { color: var(--muted2); }
+  table td.num { color: var(--muted); font-size: 11px; }
+
+  .area-tag {
+    display: inline-block;
+    background: rgba(16,185,129,0.15);
+    color: #34d399;
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-size: 10px;
+    font-family: monospace;
+  }
+
+  .provider-tag {
+    display: inline-block;
+    background: rgba(59,130,246,0.12);
+    color: #93c5fd;
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-size: 10px;
+  }
+
+  .actions-cell { display: flex; gap: 4px; }
+
+  /* SQL output */
+  .sql-output {
+    background: #0a0e1a;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    font-family: 'Cascadia Code', 'Fira Code', 'Courier New', monospace;
+    font-size: 12px;
+    line-height: 1.7;
+    color: #e2e8f0;
+    white-space: pre;
+    overflow-x: auto;
+    max-height: 500px;
+    overflow-y: auto;
+    tab-size: 2;
+  }
+
+  .sql-output .kw { color: #c792ea; font-weight: 600; }
+  .sql-output .fn { color: #82aaff; }
+  .sql-output .str { color: #c3e88d; }
+  .sql-output .num { color: #f78c6c; }
+  .sql-output .col { color: #89ddff; }
+  .sql-output .cmt { color: #546e7a; font-style: italic; }
+
+  .mode-toggle {
+    display: flex;
+    gap: 4px;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 4px;
+    width: fit-content;
+  }
+
+  .mode-btn {
+    background: none;
+    border: none;
+    color: var(--muted2);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    white-space: nowrap;
+  }
+
+  .mode-btn.active {
+    background: var(--blue);
+    color: #fff;
+  }
+
+  .mode-btn:not(.active):hover {
+    background: var(--border);
+    color: var(--text);
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+  /* Editing state */
+  .editing-banner {
+    background: rgba(217,119,6,0.15);
+    border: 1px solid rgba(217,119,6,0.4);
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 12px;
+    color: #fbbf24;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .empty-state {
+    text-align: center;
+    color: var(--muted);
+    padding: 32px;
+    font-size: 13px;
+  }
+
+  /* Provider search select */
+  .searchable-select-wrap { position: relative; }
+
+  .provider-display {
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 13px;
+    padding: 8px 10px;
+    width: 100%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: border-color 0.15s;
+    user-select: none;
+  }
+
+  .provider-display:hover, .provider-display.open { border-color: var(--blue); }
+
+  .provider-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: var(--sidebar);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    z-index: 100;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    display: none;
+  }
+
+  .provider-dropdown.open { display: block; }
+
+  .provider-search {
+    padding: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .provider-search input {
+    width: 100%;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--text);
+    font-size: 12px;
+    padding: 6px 9px;
+    outline: none;
+  }
+
+  .provider-list {
+    max-height: 220px;
+    overflow-y: auto;
+  }
+
+  .provider-option {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background 0.12s;
+  }
+
+  .provider-option:hover, .provider-option.selected { background: rgba(59,130,246,0.15); }
+
+  .provider-option .p-code {
+    color: var(--muted);
+    font-family: monospace;
+    font-size: 11px;
+    min-width: 28px;
+  }
+
+  .provider-option .p-label { color: var(--text); font-weight: 500; }
+
+  .provider-option .p-type {
+    margin-left: auto;
+    color: var(--muted);
+    font-size: 11px;
+    background: rgba(51,65,85,0.6);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+
+  .chevron { font-size: 10px; color: var(--muted); }
+
+  /* key hints */
+  .key-hints {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+  .key-hint-tag {
+    display: inline-block;
+    background: rgba(51,65,85,0.7);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1px 6px;
+    margin: 2px 2px;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+    font-family: monospace;
+    color: var(--muted2);
+  }
+  .key-hint-tag:hover { background: rgba(59,130,246,0.2); color: var(--blue); border-color: var(--blue); }
+
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--success);
+    color: #fff;
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    z-index: 9999;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 0.25s, transform 0.25s;
+    pointer-events: none;
+  }
+
+  .toast.show { opacity: 1; transform: translateY(0); }
+
+  /* Top Nav */
+  .topnav { background: #020617; border-bottom: 1px solid #1e293b; padding: 0 20px; display: flex; align-items: center; gap: 0; height: 42px; flex-shrink: 0; }
+  .topnav .brand { font-size: 12px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 1px; padding-right: 20px; border-right: 1px solid #1e293b; margin-right: 8px; }
+  .topnav a { display: flex; align-items: center; gap: 6px; padding: 0 14px; height: 42px; font-size: 12px; color: #64748b; text-decoration: none; border-bottom: 2px solid transparent; transition: all .15s; white-space: nowrap; }
+  .topnav a:hover { color: #e2e8f0; background: #0f172a; }
+  .topnav a.active { color: #3b82f6; border-bottom-color: #3b82f6; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <span class="brand">Tiger Dev Tools</span>
+  <a href="game-switch-tool.html">🎮 遊戲開關</a>
+  <a href="provider-setting-tool.html" class="active">⚙️ 商戶號設定</a>
+  <a href="megaxcess-audit-reconcile-tool.html">🔍 MegaXcess Tools</a>
+  <a href="thirdparty-sync-order-tool.html">🔄 同步訂單</a>
+</nav>
+
+<header>
+  <h1>Provider Setting Tool</h1>
+  <span class="badge">tiger_thirdparty</span>
+  <span style="color:var(--muted);font-size:12px;margin-left:auto;">provider_setting 表 INSERT/UPDATE SQL 生成器</span>
+</header>
+
+<div class="layout">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-title">全域設定</div>
+
+    <div class="form-group">
+      <label>Vendor</label>
+      <select id="vendorSelect" onchange="onVendorSelectChange()">
+        <option value="__ALL__">🔁 全業主 FOR LOOP</option>
+        <option value="__CUSTOM__">✏️ 自訂</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <div class="custom-vendor-row" style="margin-top:0">
+        <label style="min-width:60px">自訂：</label>
+        <input type="text" id="vendorCustom" placeholder="自訂 vendor code" oninput="onVendorCustomInput()">
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="form-group">
+      <label>Provider</label>
+      <div class="searchable-select-wrap" id="providerSelectWrap">
+        <div class="provider-display" id="providerDisplay" onclick="toggleProviderDropdown()">
+          <span id="providerDisplayText" style="color:var(--muted)">-- 選擇 Provider --</span>
+          <span class="chevron">▼</span>
+        </div>
+        <div class="provider-dropdown" id="providerDropdown">
+          <div class="provider-search">
+            <input type="text" id="providerSearchInput" placeholder="搜尋 provider..." oninput="filterProviders()" onclick="event.stopPropagation()">
+          </div>
+          <div class="provider-list" id="providerList"></div>
+        </div>
+      </div>
+    </div>
+
+
+    <div class="divider"></div>
+
+    <div class="form-group">
+      <label>Update By</label>
+      <input type="text" id="updateBy" placeholder="(留空表示空字串)">
+    </div>
+
+    <div class="divider"></div>
+
+    <div style="font-size:12px;color:var(--muted)">
+      目前設定：<br>
+      Vendor: <span id="sidebarVendor" style="color:var(--blue)">—</span><br>
+      Provider: <span id="sidebarProvider" style="color:var(--blue)">—</span>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab(0, this)">新增設定</button>
+      <button class="tab-btn" onclick="switchTab(1, this)">SQL 輸出</button>
+    </div>
+
+    <!-- Tab 0: Add Settings -->
+    <div class="tab-panel active" id="tab0">
+      <div class="card">
+        <div class="card-header" id="formCardHeader">新增設定行</div>
+
+        <div id="editingBanner" style="display:none;margin-bottom:12px">
+          <div class="editing-banner">
+            <span>✏️ 編輯模式 — 正在修改第 <span id="editingIndex"></span> 筆</span>
+            <button class="btn btn-gray" onclick="cancelEdit()" style="font-size:12px;padding:4px 10px">取消</button>
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <!-- Key -->
+          <div class="form-group full">
+            <label>Key</label>
+            <input type="text" id="keyInput" list="keyDatalist" placeholder="例如 pk.api.url 或 minBet" oninput="onKeyInput()">
+            <datalist id="keyDatalist"></datalist>
+            <div id="keyHints" class="key-hints"></div>
+            <div class="info-box" style="margin-top:6px">
+              key 格式通常為 <code>{provider縮寫}.{設定名稱}</code>，例如 <code>pk.api.url</code>。金額類設定直接用 <code>minBet</code>、<code>maxBet</code>。
+            </div>
+          </div>
+
+          <!-- Value -->
+          <div class="form-group full">
+            <label>Value</label>
+            <input type="text" id="valueInput" placeholder="設定值">
+          </div>
+
+          <!-- Desc -->
+          <div class="form-group full">
+            <label>Desc <span style="color:var(--muted);font-weight:400">(說明)</span></label>
+            <input type="text" id="descInput" placeholder="說明文字">
+          </div>
+        </div>
+
+        <!-- Area -->
+        <div class="form-group" style="margin-top:14px">
+          <label>Area <span style="color:var(--muted);font-weight:400">(選擇一個或多個區域)</span></label>
+          <div class="info-box" style="margin-bottom:8px">
+            GLOBAL 對應 CNY，為各 Provider 主要設定區域。金額相關設定（minBet/maxBet）需各幣別區域分別設定。
+          </div>
+          <div class="btn-row" style="margin-bottom:8px">
+            <button class="btn btn-gray" style="font-size:11px;padding:4px 10px" onclick="selectAreaGroup('法幣')">全選法幣</button>
+            <button class="btn btn-gray" style="font-size:11px;padding:4px 10px" onclick="selectAreaGroup('數字貨幣')">全選數字貨幣</button>
+            <button class="btn btn-gray" style="font-size:11px;padding:4px 10px" onclick="selectAreaGroup('all')">全選</button>
+            <button class="btn btn-gray" style="font-size:11px;padding:4px 10px" onclick="selectAreaGroup('none')">取消全選</button>
+          </div>
+          <div class="area-grid" id="areaGrid"></div>
+        </div>
+
+        <div style="margin-top:16px">
+          <button class="btn btn-green" onclick="addRows()">
+            <span>＋</span> 加入列表
+          </button>
+        </div>
+      </div>
+
+      <!-- Row list -->
+      <div class="card">
+        <div class="card-header">
+          已加入的設定列表
+          <span class="count-badge" id="rowCount">0 筆</span>
+          <button class="btn btn-red" style="font-size:11px;padding:4px 10px;margin-left:8px" onclick="clearAll()">清空全部</button>
+        </div>
+        <div id="rowListWrap">
+          <div class="empty-state" id="emptyState">尚未加入任何設定行</div>
+          <div class="table-wrap" id="tableWrap" style="display:none">
+            <table id="rowTable">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Vendor</th>
+                  <th>Provider</th>
+                  <th>Key</th>
+                  <th>Value</th>
+                  <th>Area</th>
+                  <th>Desc</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="rowTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 1: SQL Output -->
+    <div class="tab-panel" id="tab1">
+      <div class="card">
+        <div class="card-header">SQL 模式</div>
+        <div class="mode-toggle">
+          <button class="mode-btn active" onclick="setMode('INSERT', this)">INSERT</button>
+          <button class="mode-btn" onclick="setMode('UPSERT', this)">INSERT ON DUPLICATE KEY UPDATE</button>
+          <button class="mode-btn" onclick="setMode('UPDATE', this)">UPDATE</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          SQL 預覽
+          <div style="margin-left:auto;display:flex;gap:8px">
+            <button class="btn btn-purple" onclick="copySQL()">
+              <span>⎘</span> 複製 SQL
+            </button>
+            <button class="btn btn-gray" onclick="downloadSQL()">
+              <span>↓</span> 下載 .sql
+            </button>
+          </div>
+        </div>
+        <div class="sql-output" id="sqlOutput"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ========== DATA ==========
+
+const PROVIDERS = [
+  { code: 1,  name: "SPORT",        label: "體育",             type: "體育" },
+  { code: 2,  name: "LOTTERY",      label: "彩票",             type: "彩票" },
+  { code: 3,  name: "DT",           label: "DT 老虎機",        type: "老虎機" },
+  { code: 4,  name: "MG",           label: "MG 老虎機",        type: "老虎機" },
+  { code: 5,  name: "FISHING(AG)",  label: "AG 捕魚",          type: "捕魚" },
+  { code: 6,  name: "LIVE(AG)",     label: "AG 真人",          type: "真人" },
+  { code: 7,  name: "INNO_LOTTERY", label: "INNO 彩票",        type: "彩票" },
+  { code: 8,  name: "BG_LIVE",      label: "BG 真人",          type: "真人" },
+  { code: 10, name: "KY_BOARD",     label: "KY 棋牌",          type: "棋牌" },
+  { code: 11, name: "AG_SLOT",      label: "AG 老虎機",        type: "老虎機" },
+  { code: 13, name: "AVIA_ESPORT",  label: "AVIA 電競",        type: "電競" },
+  { code: 14, name: "KS_FISHING",   label: "KS 捕魚",          type: "捕魚" },
+  { code: 15, name: "CQ9_SLOT",     label: "CQ9 老虎機",       type: "老虎機" },
+  { code: 16, name: "PG_SLOT",      label: "PG 老虎機",        type: "老虎機" },
+  { code: 17, name: "PT_SLOT",      label: "PT 老虎機",        type: "老虎機" },
+  { code: 18, name: "JDB_SLOT",     label: "JDB 老虎機",       type: "老虎機" },
+  { code: 19, name: "EZ_LIVE",      label: "EZ 真人",          type: "真人" },
+  { code: 20, name: "XBB(BBIN)",    label: "BBIN",             type: "老虎機" },
+  { code: 21, name: "EVO_LIVE",     label: "EVO 真人",         type: "真人" },
+  { code: 22, name: "PP_SLOT",      label: "PP 老虎機",        type: "老虎機" },
+  { code: 23, name: "BS_SLOT",      label: "BS 老虎機",        type: "老虎機" },
+  { code: 24, name: "JDB_FISHING",  label: "JDB 捕魚",         type: "捕魚" },
+  { code: 25, name: "V8_BOARD",     label: "V8 棋牌",          type: "棋牌" },
+  { code: 26, name: "RCB_HORSE",    label: "RCB 賽馬",         type: "賽馬" },
+  { code: 28, name: "LY_BOARD",     label: "LY 棋牌",          type: "棋牌" },
+  { code: 29, name: "AE_LIVE",      label: "AE 真人",          type: "真人" },
+  { code: 30, name: "BBIN_LIVE",    label: "BBIN 真人",        type: "真人" },
+  { code: 31, name: "QUICK_SPIN",   label: "QuickSpin 老虎機", type: "老虎機" },
+  { code: 32, name: "PM_LIVE",      label: "PM 真人",          type: "真人" },
+  { code: 33, name: "WM_LIVE",      label: "WM 真人",          type: "真人" },
+  { code: 34, name: "TF_ESPORT",    label: "TF 電競",          type: "電競" },
+  { code: 35, name: "DB_ESPORT",    label: "DB 電競",          type: "電競" },
+  { code: 36, name: "MGPLUS",       label: "MG+ 老虎機",       type: "老虎機" },
+  { code: 37, name: "DB_BOARD",     label: "DB 棋牌",          type: "棋牌" },
+  { code: 38, name: "JILI",         label: "JILI 老虎機",      type: "老虎機" },
+  { code: 39, name: "DB_FISH",      label: "DB 捕魚",          type: "捕魚" },
+  { code: 41, name: "NETENT",       label: "NetEnt 老虎機",    type: "老虎機" },
+  { code: 42, name: "REDTIGER",     label: "RedTiger 老虎機",  type: "老虎機" },
+  { code: 43, name: "TPG_SLOT",     label: "TPG 老虎機",       type: "老虎機" },
+  { code: 46, name: "PK_LIVE",      label: "PK 真人",          type: "真人" },
+  { code: 47, name: "FULLA",        label: "Fulla 電競",       type: "電競" },
+];
+
+const AREAS = [
+  { name: "GLOBAL",           currency: "CNY",        group: "法幣",    note: "默認全局設定" },
+  { name: "INDONESIA",        currency: "IDR",        group: "法幣" },
+  { name: "VIETNAM",          currency: "VND",        group: "法幣" },
+  { name: "MALAYSIA",         currency: "MYR",        group: "法幣" },
+  { name: "USD",              currency: "USD",        group: "法幣" },
+  { name: "HKD",              currency: "HKD",        group: "法幣" },
+  { name: "THB",              currency: "THB",        group: "法幣" },
+  { name: "JPY",              currency: "JPY",        group: "法幣" },
+  { name: "KRW",              currency: "KRW",        group: "法幣" },
+  { name: "INR",              currency: "INR",        group: "法幣" },
+  { name: "BRL",              currency: "BRL",        group: "法幣" },
+  { name: "PHP",              currency: "PHP",        group: "法幣" },
+  { name: "NGN",              currency: "NGN",        group: "法幣" },
+  { name: "BDT",              currency: "BDT",        group: "法幣" },
+  { name: "nINDONESIA",       currency: "nIDR",       group: "法幣",    note: "1:1 印尼盾" },
+  { name: "nVIETNAM",         currency: "nVND",       group: "法幣",    note: "1:1 越南盾" },
+  { name: "ETHEREUM",         currency: "ETH",        group: "數字貨幣" },
+  { name: "BITCOIN",          currency: "BTC",        group: "數字貨幣" },
+  { name: "LITECOIN",         currency: "LTC",        group: "數字貨幣" },
+  { name: "USDT_OMNI",        currency: "USDT_OMNI",  group: "數字貨幣" },
+  { name: "USDT_ERC20",       currency: "USDT_ERC20", group: "數字貨幣" },
+  { name: "USDT_TRC20",       currency: "USDT_TRC20", group: "數字貨幣" },
+  { name: "USDT",             currency: "USDT",       group: "數字貨幣" },
+  { name: "DOGECOIN",         currency: "DOGE",       group: "數字貨幣" },
+  { name: "BITCOIN_CASH",     currency: "BCH",        group: "數字貨幣" },
+  { name: "DASH",             currency: "DASH",       group: "數字貨幣" },
+  { name: "ETHEREUM_CLASSIC", currency: "ETC",        group: "數字貨幣" },
+  { name: "AAVE_ERC20",       currency: "AAVE_ERC20", group: "數字貨幣" },
+  { name: "DAI_ERC20",        currency: "DAI_ERC20",  group: "數字貨幣" },
+  { name: "UNI_ERC20",        currency: "UNI_ERC20",  group: "數字貨幣" },
+  { name: "WBTC_ERC20",       currency: "WBTC_ERC20", group: "數字貨幣" },
+  { name: "USDC_ERC20",       currency: "USDC_ERC20", group: "數字貨幣" },
+  { name: "TRX",              currency: "TRX",        group: "數字貨幣" },
+];
+
+
+// Provider key hints
+const PROVIDER_KEY_HINTS = {
+  46: ['pk.api.url', 'pk.operator.key', 'pk.secret.key', 'pk.agent.id'],
+  6:  ['ag.api.url', 'ag.operator.key', 'ag.secret.key'],
+  8:  ['bg.api.url', 'bg.operator.key', 'bg.secret.key'],
+  21: ['evo.api.url', 'evo.operator.key', 'evo.secret.key'],
+  19: ['ez.api.url', 'ez.operator.key', 'ez.secret.key'],
+  29: ['ae.api.url', 'ae.operator.key'],
+  30: ['bbin.api.url', 'bbin.operator.key', 'bbin.secret.key'],
+  32: ['pm.api.url', 'pm.operator.key', 'pm.secret.key'],
+  33: ['wm.api.url', 'wm.operator.key', 'wm.secret.key'],
+  15: ['cq9.api.url', 'cq9.operator.key', 'cq9.secret.key'],
+  16: ['pg.api.url', 'pg.operator.key', 'pg.secret.key'],
+  17: ['pt.api.url', 'pt.operator.key', 'pt.secret.key'],
+  18: ['jdb.api.url', 'jdb.operator.key', 'jdb.secret.key'],
+  22: ['pp.api.url', 'pp.operator.key', 'pp.secret.key'],
+  38: ['jili.api.url', 'jili.operator.key', 'jili.secret.key'],
+};
+
+const COMMON_KEYS = [
+  { key: 'minBet',              desc: '最小投注 (area specific)' },
+  { key: 'maxBet',              desc: '最大投注 (area specific)' },
+  { key: 'maxWinAmount',        desc: '最大贏額 (area specific)' },
+  { key: 'betlimit',            desc: '限紅列表 (area specific)' },
+  { key: 'token',               desc: '存取 Token (GLOBAL)' },
+  { key: 'BalanceTokenSignKey', desc: '餘額 Token 簽名密鑰 (GLOBAL)' },
+];
+
+const KEY_DESC_MAP = {
+  'minBet':              '最小投注',
+  'maxBet':              '最大投注',
+  'maxWinAmount':        '最大贏額',
+  'betlimit':            '限紅列表',
+  'token':               '存取 Token',
+  'BalanceTokenSignKey': '餘額 Token 簽名密鑰',
+};
+
+// ========== STATE ==========
+
+let rows = [];
+let sqlMode = 'INSERT';
+let selectedProvider = null;
+let editingRowIndex = null;
+
+// ========== INIT ==========
+
+function init() {
+  // Vendor select - show/hide custom input on init
+  onVendorSelectChange();
+
+  // Provider list
+  renderProviderList('');
+
+  // Area grid
+  renderAreaGrid();
+
+  // Datalist
+  refreshDatalist();
+}
+
+function renderProviderList(filter) {
+  const list = document.getElementById('providerList');
+  list.innerHTML = '';
+  const q = filter.toLowerCase();
+  PROVIDERS.filter(p =>
+    p.name.toLowerCase().includes(q) ||
+    p.label.includes(q) ||
+    String(p.code).includes(q) ||
+    p.type.includes(q)
+  ).forEach(p => {
+    const div = document.createElement('div');
+    div.className = 'provider-option' + (selectedProvider && selectedProvider.code === p.code ? ' selected' : '');
+    div.innerHTML = `<span class="p-code">${p.code}</span><span class="p-label">${p.label}</span><span class="p-type">${p.type}</span>`;
+    div.onclick = () => selectProvider(p);
+    list.appendChild(div);
+  });
+  if (list.children.length === 0) {
+    list.innerHTML = '<div style="padding:12px;color:var(--muted);font-size:12px;text-align:center">無符合結果</div>';
+  }
+}
+
+function renderAreaGrid() {
+  const grid = document.getElementById('areaGrid');
+  grid.innerHTML = '';
+
+  const groups = ['法幣', '數字貨幣'];
+  groups.forEach((group, gi) => {
+    // Group header
+    const hdr = document.createElement('div');
+    hdr.className = 'area-group-header';
+    hdr.innerHTML = `<div class="area-group-label">${group}</div>`;
+    grid.appendChild(hdr);
+
+    AREAS.filter(a => a.group === group).forEach(area => {
+      const label = document.createElement('label');
+      label.className = 'area-item';
+      const noteHtml = area.note ? ` <span style="color:var(--muted);font-size:10px">(${area.note})</span>` : '';
+      label.innerHTML = `
+        <input type="checkbox" name="area" value="${area.name}">
+        <span class="area-name">${area.name}</span>
+        <span class="currency-badge">${area.currency}</span>
+        ${noteHtml}
+      `;
+      grid.appendChild(label);
+    });
+
+    if (gi < groups.length - 1) {
+      const sep = document.createElement('div');
+      sep.className = 'area-group-separator';
+      grid.appendChild(sep);
+    }
+  });
+}
+
+function refreshDatalist() {
+  const dl = document.getElementById('keyDatalist');
+  dl.innerHTML = '';
+  COMMON_KEYS.forEach(ck => {
+    const opt = document.createElement('option');
+    opt.value = ck.key;
+    opt.label = ck.desc;
+    dl.appendChild(opt);
+  });
+  if (selectedProvider) {
+    const hints = PROVIDER_KEY_HINTS[selectedProvider.code] || [];
+    hints.forEach(h => {
+      const opt = document.createElement('option');
+      opt.value = h;
+      dl.appendChild(opt);
+    });
+  }
+}
+
+// ========== VENDOR ==========
+
+function getVendor() {
+  const sel = document.getElementById('vendorSelect').value;
+  if (sel === '__ALL__') return '__ALL__';
+  const custom = document.getElementById('vendorCustom').value.trim();
+  if (custom) return custom;
+  return sel;
+}
+
+function isAllVendors(vendor) {
+  return vendor === '__ALL__';
+}
+
+function onVendorSelectChange() {
+  document.getElementById('vendorCustom').value = '';
+  updateSidebarInfo();
+}
+
+function onVendorCustomInput() {
+  if (document.getElementById('vendorCustom').value.trim()) {
+    document.getElementById('vendorSelect').value = '';
+  }
+  updateSidebarInfo();
+}
+
+// ========== PROVIDER ==========
+
+function toggleProviderDropdown() {
+  const dd = document.getElementById('providerDropdown');
+  const disp = document.getElementById('providerDisplay');
+  const isOpen = dd.classList.contains('open');
+  if (isOpen) {
+    dd.classList.remove('open');
+    disp.classList.remove('open');
+  } else {
+    dd.classList.add('open');
+    disp.classList.add('open');
+    document.getElementById('providerSearchInput').focus();
+    filterProviders();
+  }
+}
+
+function filterProviders() {
+  const q = document.getElementById('providerSearchInput').value;
+  renderProviderList(q);
+}
+
+function selectProvider(p) {
+  selectedProvider = p;
+  document.getElementById('providerDisplayText').textContent = `[${p.code}] ${p.label} (${p.type})`;
+  document.getElementById('providerDisplayText').style.color = 'var(--text)';
+  document.getElementById('providerDropdown').classList.remove('open');
+  document.getElementById('providerDisplay').classList.remove('open');
+  document.getElementById('providerSearchInput').value = '';
+  renderProviderList('');
+  refreshDatalist();
+  updateKeyHints();
+  updateSidebarInfo();
+}
+
+document.addEventListener('click', function(e) {
+  const wrap = document.getElementById('providerSelectWrap');
+  if (!wrap.contains(e.target)) {
+    document.getElementById('providerDropdown').classList.remove('open');
+    document.getElementById('providerDisplay').classList.remove('open');
+  }
+});
+
+// ========== KEY HINTS ==========
+
+function updateKeyHints() {
+  const hintsDiv = document.getElementById('keyHints');
+  hintsDiv.innerHTML = '';
+  if (!selectedProvider) return;
+  const hints = PROVIDER_KEY_HINTS[selectedProvider.code];
+  if (!hints || hints.length === 0) return;
+  const label = document.createElement('span');
+  label.style.marginRight = '4px';
+  label.textContent = '快速填入：';
+  hintsDiv.appendChild(label);
+  hints.forEach(h => {
+    const tag = document.createElement('span');
+    tag.className = 'key-hint-tag';
+    tag.textContent = h;
+    tag.onclick = () => {
+      document.getElementById('keyInput').value = h;
+      onKeyInput();
+    };
+    hintsDiv.appendChild(tag);
+  });
+}
+
+function onKeyInput() {
+  const key = document.getElementById('keyInput').value.trim();
+  const descInput = document.getElementById('descInput');
+  if (!descInput.value && KEY_DESC_MAP[key]) {
+    descInput.value = KEY_DESC_MAP[key];
+  }
+}
+
+// ========== AREA ==========
+
+function selectAreaGroup(group) {
+  const checkboxes = document.querySelectorAll('#areaGrid input[type="checkbox"]');
+  checkboxes.forEach(cb => {
+    if (group === 'all') cb.checked = true;
+    else if (group === 'none') cb.checked = false;
+    else {
+      const area = AREAS.find(a => a.name === cb.value);
+      if (area && area.group === group) cb.checked = true;
+    }
+  });
+}
+
+function getSelectedAreas() {
+  const checked = document.querySelectorAll('#areaGrid input[type="checkbox"]:checked');
+  return Array.from(checked).map(cb => cb.value);
+}
+
+// ========== SIDEBAR INFO ==========
+
+function updateSidebarInfo() {
+  const vendor = getVendor();
+  document.getElementById('sidebarVendor').textContent = vendor || '—';
+  document.getElementById('sidebarProvider').textContent = selectedProvider
+    ? `[${selectedProvider.code}] ${selectedProvider.label}`
+    : '—';
+}
+
+// ========== ROWS ==========
+
+function addRows() {
+  const vendor = getVendor();
+  if (!vendor) { showToast('請選擇或填入 Vendor', 'error'); return; }
+  // hide customInput when all vendors
+  if (isAllVendors(vendor)) {
+    document.getElementById('vendorCustom').value = '';
+  }
+  if (!selectedProvider) { showToast('請選擇 Provider', 'error'); return; }
+
+  const key = document.getElementById('keyInput').value.trim();
+  if (!key) { showToast('請填入 Key', 'error'); return; }
+
+  const value = document.getElementById('valueInput').value;
+  const desc = document.getElementById('descInput').value.trim();
+  const updateBy = document.getElementById('updateBy').value;
+  const areas = getSelectedAreas();
+
+  if (areas.length === 0) { showToast('請至少選擇一個 Area', 'error'); return; }
+
+  if (editingRowIndex !== null) {
+    const newRows = areas.map((area) => {
+      const areaObj = AREAS.find(a => a.name === area);
+      return {
+        vendor,
+        provider: selectedProvider.code,
+        providerLabel: selectedProvider.label,
+        key,
+        value,
+        area,
+        areaCurrency: areaObj ? areaObj.currency : '',
+        desc,
+        updateBy,
+      };
+    });
+    rows.splice(editingRowIndex, 1, ...newRows);
+    cancelEdit();
+  } else {
+    areas.forEach((area) => {
+      const areaObj = AREAS.find(a => a.name === area);
+      rows.push({
+        vendor,
+        provider: selectedProvider.code,
+        providerLabel: selectedProvider.label,
+        key,
+        value,
+        area,
+        areaCurrency: areaObj ? areaObj.currency : '',
+        desc,
+        updateBy,
+      });
+    });
+  }
+
+  renderRowTable();
+  clearForm();
+  showToast(`已加入 ${areas.length} 筆設定`);
+}
+
+function clearForm() {
+  document.getElementById('keyInput').value = '';
+  document.getElementById('valueInput').value = '';
+  document.getElementById('descInput').value = '';
+  selectAreaGroup('none');
+}
+
+function renderRowTable() {
+  const tbody = document.getElementById('rowTableBody');
+  tbody.innerHTML = '';
+  document.getElementById('rowCount').textContent = `${rows.length} 筆`;
+
+  if (rows.length === 0) {
+    document.getElementById('emptyState').style.display = 'block';
+    document.getElementById('tableWrap').style.display = 'none';
+    return;
+  }
+
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('tableWrap').style.display = 'block';
+
+  rows.forEach((row, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="num">${i + 1}</td>
+      <td class="mono">${row.vendor === '__ALL__' ? '<span style="background:#7c3aed;color:#fff;font-size:10px;padding:2px 7px;border-radius:3px;font-weight:700;">ALL</span>' : esc(row.vendor)}</td>
+      <td><span class="provider-tag">[${row.provider}] ${esc(row.providerLabel)}</span></td>
+      <td class="mono">${esc(row.key)}</td>
+      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(row.value)}">${esc(row.value) || '<span style="color:var(--muted)">(空)</span>'}</td>
+      <td><span class="area-tag">${esc(row.area)}</span> <span style="color:var(--muted);font-size:10px">[${esc(row.areaCurrency)}]</span></td>
+      <td class="muted" style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(row.desc)}">${esc(row.desc) || ''}</td>
+      <td>
+        <div class="actions-cell">
+          <button class="btn-icon" title="編輯" onclick="editRow(${i})">✏️</button>
+          <button class="btn-icon danger" title="刪除" onclick="deleteRow(${i})">✕</button>
+        </div>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function editRow(i) {
+  const row = rows[i];
+  editingRowIndex = i;
+
+  document.getElementById('keyInput').value = row.key;
+  document.getElementById('valueInput').value = row.value;
+  document.getElementById('descInput').value = row.desc;
+  document.getElementById('updateBy').value = row.updateBy;
+
+  // Set vendor
+  if (row.vendor === '__ALL__') {
+    document.getElementById('vendorSelect').value = '__ALL__';
+    document.getElementById('vendorCustom').value = '';
+  } else {
+    document.getElementById('vendorSelect').value = '__CUSTOM__';
+    document.getElementById('vendorCustom').value = row.vendor;
+  }
+  onVendorSelectChange();
+
+  // Set provider
+  const prov = PROVIDERS.find(p => p.code === row.provider);
+  if (prov) selectProvider(prov);
+
+  // Set area
+  selectAreaGroup('none');
+  const cb = document.querySelector(`#areaGrid input[value="${row.area}"]`);
+  if (cb) cb.checked = true;
+
+  document.getElementById('editingBanner').style.display = 'block';
+  document.getElementById('editingIndex').textContent = i + 1;
+  document.getElementById('formCardHeader').textContent = '編輯設定行';
+  updateSidebarInfo();
+
+  // Scroll to form
+  document.getElementById('tab0').scrollIntoView({ behavior: 'smooth' });
+}
+
+function cancelEdit() {
+  editingRowIndex = null;
+  document.getElementById('editingBanner').style.display = 'none';
+  document.getElementById('formCardHeader').textContent = '新增設定行';
+  clearForm();
+}
+
+function deleteRow(i) {
+  rows.splice(i, 1);
+  if (editingRowIndex === i) cancelEdit();
+  renderRowTable();
+}
+
+function clearAll() {
+  if (rows.length === 0) return;
+  if (!confirm(`確定要清空全部 ${rows.length} 筆設定嗎？`)) return;
+  rows = [];
+  cancelEdit();
+  renderRowTable();
+  showToast('已清空全部');
+}
+
+// ========== TABS ==========
+
+function switchTab(idx, btn) {
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    b.classList.toggle('active', i === idx);
+  });
+  document.querySelectorAll('.tab-panel').forEach((p, i) => {
+    p.classList.toggle('active', i === idx);
+  });
+  if (idx === 1) generateSQL();
+}
+
+// ========== SQL ==========
+
+function setMode(mode, btn) {
+  sqlMode = mode;
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  generateSQL();
+}
+
+function sqlEsc(v) {
+  if (v === null || v === undefined) return '';
+  return String(v).replace(/'/g, "''");
+}
+
+function esc(v) {
+  if (v === null || v === undefined) return '';
+  return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function buildInnerSQL(useAtVendor) {
+  const vnd = (row) => useAtVendor ? '@vendor' : `'${sqlEsc(row.vendor)}'`;
+  let sql = '';
+  if (sqlMode === 'INSERT' || sqlMode === 'UPSERT') {
+    sql += `INSERT INTO \`provider_setting\` (\`vendor\`, \`provider\`, \`key\`, \`value\`, \`area\`, \`desc\`, \`update_by\`)\nVALUES\n`;
+    const valueLines = rows.map((row, i) => {
+      const isLast = i === rows.length - 1;
+      return `  (${vnd(row)}, ${row.provider}, '${sqlEsc(row.key)}', '${sqlEsc(row.value)}', '${sqlEsc(row.area)}', '${sqlEsc(row.desc)}', '${sqlEsc(row.updateBy)}')${isLast ? '' : ','}`;
+    });
+    sql += valueLines.join('\n');
+    if (sqlMode === 'UPSERT') {
+      sql += `\nON DUPLICATE KEY UPDATE \`value\` = VALUES(\`value\`), \`desc\` = VALUES(\`desc\`), \`update_time\` = NOW(), \`update_by\` = VALUES(\`update_by\`);`;
+    } else {
+      sql += ';';
+    }
+  } else if (sqlMode === 'UPDATE') {
+    sql = rows.map(row =>
+      `UPDATE \`provider_setting\`\n  SET \`value\` = '${sqlEsc(row.value)}', \`desc\` = '${sqlEsc(row.desc)}', \`update_time\` = NOW(), \`update_by\` = '${sqlEsc(row.updateBy)}'\n  WHERE \`vendor\` = ${vnd(row)} AND \`provider\` = ${row.provider} AND \`key\` = '${sqlEsc(row.key)}' AND \`area\` = '${sqlEsc(row.area)}';`
+    ).join('\n\n');
+  }
+  return sql;
+}
+
+function buildForLoopSQL(innerSQL) {
+  const indented = innerSQL.split('\n').map(l => '    ' + l).join('\n');
+  return `USE tiger_thirdparty;\n\nSET NAMES utf8mb4;\nSET collation_connection = 'utf8mb4_unicode_ci';\n\n-- 全業主 FOR LOOP\nDELIMITER $\nBEGIN NOT ATOMIC\n  FOR l_vnd_rec IN ( SELECT \`vendor\` FROM \`tiger_admin\`.\`vendor\`)\n  DO\n    SELECT @vendor := l_vnd_rec.vendor;\n    -- *** your script Begin ***\n\n${indented}\n\n    -- ***  your script End ***\n\n  END FOR;\nEND;\n$\nDELIMITER ;`;
+}
+
+function generateSQL() {
+  const output = document.getElementById('sqlOutput');
+  if (rows.length === 0) {
+    output.innerHTML = '<span style="color:var(--muted)">-- 尚未加入任何設定行</span>';
+    return;
+  }
+  const allVendors = rows.some(r => r.vendor === '__ALL__');
+  const inner = buildInnerSQL(allVendors);
+  const sql = allVendors ? buildForLoopSQL(inner) : inner;
+  output.innerHTML = syntaxHighlight(sql);
+}
+
+function syntaxHighlight(sql) {
+  // Very lightweight SQL syntax highlighting
+  return sql
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/\b(INSERT|INTO|VALUES|UPDATE|SET|WHERE|ON|DUPLICATE|KEY|UPDATE|AND|NOW)\b/g, '<span class="kw">$1</span>')
+    .replace(/NOW\(\)/g, '<span class="fn">NOW()</span>')
+    .replace(/`([^`]+)`/g, '<span class="col">`$1`</span>')
+    .replace(/'([^']*)'/g, "<span class=\"str\">'$1'</span>")
+    .replace(/\b(\d+)\b(?![^<]*>)/g, '<span class="num">$1</span>');
+}
+
+function getRawSQL() {
+  if (rows.length === 0) return '-- 尚未加入任何設定行\n';
+  const allVendors = rows.some(r => r.vendor === '__ALL__');
+  const inner = buildInnerSQL(allVendors);
+  return allVendors ? buildForLoopSQL(inner) : inner;
+}
+
+function copySQL() {
+  const sql = getRawSQL();
+  navigator.clipboard.writeText(sql).then(() => {
+    showToast('SQL 已複製到剪貼簿');
+  }).catch(() => {
+    // fallback
+    const ta = document.createElement('textarea');
+    ta.value = sql;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('SQL 已複製到剪貼簿');
+  });
+}
+
+function downloadSQL() {
+  const sql = getRawSQL();
+  const modeLabel = sqlMode === 'UPSERT' ? 'upsert' : sqlMode.toLowerCase();
+  const filename = `provider_setting_${modeLabel}_${new Date().toISOString().slice(0,10)}.sql`;
+  const blob = new Blob([sql], { type: 'text/sql;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast(`已下載 ${filename}`);
+}
+
+// ========== TOAST ==========
+
+let toastTimer = null;
+function showToast(msg, type) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.style.background = type === 'error' ? 'var(--danger)' : 'var(--success)';
+  toast.classList.add('show');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toast.classList.remove('show'); }, 2200);
+}
+
+// ========== START ==========
+init();
+</script>
+</body>
+</html>

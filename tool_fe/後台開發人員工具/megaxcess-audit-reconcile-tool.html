@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>MegaXcess Tools (RD Internal)</title>
+<style>
+  :root {
+    --bg: #0f172a; --sidebar: #1e293b; --card: #1e293b; --border: #334155;
+    --blue: #3b82f6; --blue-dark: #2563eb; --text: #e2e8f0; --muted: #64748b;
+    --muted2: #94a3b8; --success: #059669; --danger: #dc2626; --warn: #d97706;
+    --purple: #7c3aed; --green: #10b981; --input-bg: #0f172a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+
+  /* ── Top Nav ── */
+  .topnav { background: #020617; border-bottom: 1px solid #1e293b; padding: 0 20px; display: flex; align-items: center; height: 42px; flex-shrink: 0; }
+  .topnav .brand { font-size: 12px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 1px; padding-right: 20px; border-right: 1px solid #1e293b; margin-right: 8px; white-space: nowrap; }
+  .topnav a { display: flex; align-items: center; gap: 6px; padding: 0 14px; height: 42px; font-size: 12px; color: #64748b; text-decoration: none; border-bottom: 2px solid transparent; transition: all .15s; white-space: nowrap; }
+  .topnav a:hover { color: #e2e8f0; background: #0f172a; }
+  .topnav a.active { color: #3b82f6; border-bottom-color: #3b82f6; font-weight: 600; }
+
+  /* ── Header ── */
+  header { background: var(--sidebar); border-bottom: 1px solid var(--border); padding: 14px 24px; display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+  header h1 { font-size: 18px; font-weight: 700; color: var(--text); }
+  .badge { font-size: 10px; padding: 2px 8px; border-radius: 4px; font-weight: 700; }
+  .badge-red { background: var(--danger); color: #fff; }
+  .badge-purple { background: var(--purple); color: #fff; }
+
+  /* ── Layout ── */
+  .layout { display: flex; flex: 1; overflow: hidden; }
+
+  /* ── Sidebar ── */
+  .sidebar { width: 260px; background: var(--sidebar); border-right: 1px solid var(--border); padding: 20px; overflow-y: auto; flex-shrink: 0; display: flex; flex-direction: column; gap: 20px; }
+  .sidebar-title { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; font-weight: 700; }
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 11px; color: var(--muted2); margin-bottom: 5px; font-weight: 600; }
+  .field input { width: 100%; background: var(--input-bg); border: 1px solid var(--border); color: var(--text); padding: 8px 10px; border-radius: 6px; font-size: 12px; }
+  .field input:focus { outline: none; border-color: var(--blue); }
+  .field input::placeholder { color: var(--muted); }
+  .hint { font-size: 11px; color: var(--muted); line-height: 1.7; }
+  .hint .hl { color: #fbbf24; }
+
+  /* ── Main Scroll Area ── */
+  .content { flex: 1; overflow-y: auto; padding: 20px 24px; display: flex; flex-direction: column; gap: 10px; }
+
+  /* ── Accordion Item ── */
+  .acc-item { background: var(--card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; transition: border-color .2s; }
+  .acc-item.open { border-color: #475569; }
+
+  .acc-header { display: flex; align-items: center; gap: 14px; padding: 14px 18px; cursor: pointer; user-select: none; transition: background .15s; }
+  .acc-header:hover { background: #283548; }
+  .acc-icon { font-size: 20px; flex-shrink: 0; width: 32px; text-align: center; }
+  .acc-meta { flex: 1; min-width: 0; }
+  .acc-title { font-size: 14px; font-weight: 700; color: #f1f5f9; display: flex; align-items: center; gap: 8px; }
+  .acc-title .tag { font-size: 10px; padding: 1px 7px; border-radius: 3px; font-weight: 700; }
+  .tag-blue { background: #1d4ed8; color: #bfdbfe; }
+  .tag-green { background: #065f46; color: #a7f3d0; }
+  .tag-purple { background: #5b21b6; color: #ddd6fe; }
+  .tag-orange { background: #92400e; color: #fde68a; }
+  .acc-desc { font-size: 11px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+  .acc-arrow { color: var(--muted); font-size: 12px; transition: transform .25s; flex-shrink: 0; }
+  .acc-item.open .acc-arrow { transform: rotate(180deg); }
+
+  .acc-body { display: none; border-top: 1px solid var(--border); padding: 20px; background: #0f1a2b; }
+  .acc-item.open .acc-body { display: block; }
+
+  /* ── Form inside accordion ── */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-grid .span2 { grid-column: 1 / -1; }
+  .form-field label { display: block; font-size: 11px; color: var(--muted2); margin-bottom: 5px; font-weight: 600; }
+  .form-field input, .form-field select { width: 100%; background: var(--input-bg); border: 1px solid var(--border); color: var(--text); padding: 8px 10px; border-radius: 6px; font-size: 12px; transition: border-color .15s; }
+  .form-field input:focus, .form-field select:focus { outline: none; border-color: var(--blue); }
+  .form-field input::placeholder { color: var(--muted); }
+  .form-field .fhint { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+  .btn-row { display: flex; gap: 8px; align-items: center; margin-top: 14px; flex-wrap: wrap; }
+  .btn { padding: 8px 18px; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all .15s; display: inline-flex; align-items: center; gap: 6px; }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn-primary { background: var(--blue); color: #fff; }
+  .btn-primary:not(:disabled):hover { background: var(--blue-dark); }
+  .btn-ghost { background: #334155; color: #e2e8f0; }
+  .btn-ghost:not(:disabled):hover { background: #475569; }
+
+  /* ── Result Area ── */
+  .result-wrap { margin-top: 18px; display: none; }
+  .result-wrap.show { display: block; }
+
+  .stat-bar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .stat-box { background: var(--sidebar); border: 1px solid var(--border); border-radius: 8px; padding: 11px 14px; flex: 1; min-width: 90px; }
+  .stat-label { font-size: 10px; color: var(--muted); margin-bottom: 3px; }
+  .stat-value { font-size: 20px; font-weight: 700; }
+  .sv-total { color: var(--text); }
+  .sv-clean { color: var(--green); }
+  .sv-warn  { color: var(--warn); }
+  .sv-danger{ color: var(--danger); }
+  .sv-blue  { color: var(--blue); }
+
+  /* ── Diff Table ── */
+  .diff-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
+  .diff-table th { background: var(--sidebar); color: var(--muted2); font-size: 10px; font-weight: 700; text-transform: uppercase; padding: 7px 10px; text-align: left; border-bottom: 1px solid var(--border); }
+  .diff-table td { padding: 7px 10px; border-bottom: 1px solid #1e293b; vertical-align: top; }
+  .diff-table tr:last-child td { border-bottom: none; }
+  .missing-pills { display: flex; flex-wrap: wrap; gap: 3px; }
+  .pill { background: #450a0a; color: #fca5a5; border: 1px solid #7f1d1d; font-size: 10px; padding: 1px 6px; border-radius: 10px; font-family: monospace; cursor: pointer; }
+  .pill:hover { background: #7f1d1d; }
+
+  .notfound-box { background: #1a0505; border: 1px solid #7f1d1d; border-radius: 6px; padding: 10px; max-height: 100px; overflow-y: auto; margin-top: 10px; }
+  .notfound-box code { display: block; font-size: 11px; color: #fca5a5; font-family: monospace; line-height: 1.6; }
+
+  /* ── Log ── */
+  .log-box { background: #020617; border: 1px solid var(--border); border-radius: 6px; padding: 10px; height: 120px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 11px; line-height: 1.6; margin-top: 14px; }
+  .log-info { color: #64748b; }
+  .log-ok   { color: #34d399; }
+  .log-warn { color: #fbbf24; }
+  .log-err  { color: #f87171; }
+
+  /* ── Inline status ── */
+  .running-hint { font-size: 11px; color: #fbbf24; display: none; align-items: center; gap: 6px; }
+  .running-hint.show { display: inline-flex; }
+  .spinner { width: 12px; height: 12px; border: 2px solid #334155; border-top-color: var(--blue); border-radius: 50%; animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Progress ── */
+  .prog-wrap { display: none; margin-top: 10px; }
+  .prog-wrap.show { display: block; }
+  .prog-bar { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .prog-fill { height: 100%; background: var(--blue); width: 0%; transition: width .3s; }
+  .prog-label { font-size: 10px; color: var(--muted); margin-top: 4px; }
+
+  /* ── Empty State ── */
+  .empty { text-align: center; padding: 30px; color: var(--muted); font-size: 12px; }
+
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+
+
+</style>
+</head>
+<body>
+
+<!-- Top Nav -->
+<nav class="topnav">
+  <span class="brand">Tiger Dev Tools</span>
+  <a href="game-switch-tool.html">🎮 遊戲開關</a>
+  <a href="provider-setting-tool.html">⚙️ 商戶號設定</a>
+  <a href="megaxcess-audit-reconcile-tool.html" class="active">🔍 MegaXcess Tools</a>
+  <a href="thirdparty-sync-order-tool.html">🔄 同步訂單</a>
+</nav>
+
+<!-- Header -->
+<header>
+  <span>🔍</span>
+  <h1>MegaXcess Tools</h1>
+  <span class="badge badge-red">RD Internal</span>
+  <span class="badge badge-purple">MegaXcess</span>
+</header>
+
+<div class="layout">
+
+  <!-- Sidebar：連線設定 -->
+  <aside class="sidebar">
+    <div>
+      <div class="sidebar-title">連線設定</div>
+      <div id="domain-select-container" class="field"></div>
+      <div class="field">
+        <label>Authorization Token *</label>
+        <input id="token" type="text" placeholder="Bearer eyJ...">
+      </div>
+      <div class="field">
+        <label>Referer（Gateway 必填）</label>
+        <input id="referer" type="text" placeholder="https://en-vd004-tiger-portal.innodev.site">
+      </div>
+      <div class="field">
+        <label>currency</label>
+        <input id="currency" type="text" value="CNY" placeholder="CNY">
+      </div>
+      <div class="field">
+        <label>x-forwarded-for</label>
+        <input id="xForwardedFor" type="text" value="61.216.90.1" placeholder="61.216.90.1">
+      </div>
+      <div class="field">
+        <label>Developer Key (<code style="color:#fbbf24;font-size:11px;">?key=xxx</code>)</label>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <input id="devKey" type="text" placeholder="點擊右側按鈕取得" style="flex:1;font-family:monospace;">
+          <button onclick="fetchDevKey()" title="自動取得 Dev Key" style="padding:6px 10px;font-size:11px;background:#1e3a5f;border:1px solid #3b82f6;color:#93c5fd;border-radius:6px;cursor:pointer;white-space:nowrap;">🔑 取得</button>
+        </div>
+        <span id="keyStatus" style="font-size:11px;color:#6e7681;margin-top:3px;display:block;"></span>
+      </div>
+    </div>
+    <div>
+      <div class="sidebar-title">Provider 對照</div>
+      <div class="hint" style="line-height:1.9;">
+        1 = SPORT<br>2 = LOTTERY<br>3 = DT<br>4 = MG<br>
+        5 = FISHING<br>6 = LIVE<br>7 = INNO_LOTTERY<br>
+        8 = BG_LIVE<br>10 = KY_BOARD<br>11 = AG_SLOT<br>
+        13 = AVIA_E_SPORT<br>15 = CQ9<br>18 = JDB_SLOT<br>38 = JILI
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main：Accordion 功能列表 -->
+  <main class="content">
+
+    <!-- ════════════════════════════════════════════
+         #1  Audit Reconcile
+    ════════════════════════════════════════════ -->
+    <div class="acc-item" id="acc-reconcile">
+      <div class="acc-header" onclick="toggleAcc('reconcile')">
+        <div class="acc-icon">🔍</div>
+        <div class="acc-meta">
+          <div class="acc-title">Audit Reconcile <span class="tag tag-blue">MySQL ↔ MongoDB</span></div>
+          <div class="acc-desc">比對 order_overview 與 megaxcess_audit_order，找出缺漏 betId 並透過 Kafka replay 補回</div>
+        </div>
+        <span class="acc-arrow">▼</span>
+      </div>
+      <div class="acc-body">
+        <div class="form-grid">
+          <div class="form-field">
+            <label>Start Time (GMT-4) *</label>
+            <input id="rc-start" type="text" placeholder="2026-03-25 00:00:00">
+          </div>
+          <div class="form-field">
+            <label>End Time (GMT-4) *</label>
+            <input id="rc-end" type="text" placeholder="2026-03-25 23:59:59">
+          </div>
+          <div class="form-field">
+            <label>Provider *</label>
+            <select id="rc-provider">
+              <option value="">-- 選擇 Provider --</option>
+              <option value="1">1 - SPORT</option>
+              <option value="2">2 - LOTTERY</option>
+              <option value="3">3 - DT</option>
+              <option value="4">4 - MG</option>
+              <option value="5">5 - FISHING</option>
+              <option value="6">6 - LIVE</option>
+              <option value="7">7 - INNO_LOTTERY</option>
+              <option value="8">8 - BG_LIVE</option>
+              <option value="10">10 - KY_BOARD</option>
+              <option value="11">11 - AG_SLOT</option>
+              <option value="13">13 - AVIA_E_SPORT</option>
+              <option value="18">18 - JDB_SLOT</option>
+              <option value="38">38 - JILI</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Vendor *</label>
+            <input id="rc-vendor" type="text" placeholder="vd014">
+          </div>
+          <div class="span2 btn-row">
+            <button class="btn btn-primary" id="rc-btn" onclick="runReconcile()">🔍 執行 Reconcile</button>
+            <button class="btn btn-ghost" onclick="clearReconcile()">清除</button>
+            <span class="running-hint" id="rc-hint"><span class="spinner"></span>執行中，bucket 之間有 sleep...</span>
+          </div>
+        </div>
+
+        <!-- 進度 -->
+        <div class="prog-wrap" id="rc-prog">
+          <div class="prog-bar"><div class="prog-fill" id="rc-prog-fill"></div></div>
+          <div class="prog-label" id="rc-prog-label">準備中...</div>
+        </div>
+
+        <!-- 結果 -->
+        <div class="result-wrap" id="rc-result">
+          <div class="stat-bar" id="rc-stats"></div>
+          <div id="rc-replay-stats"></div>
+          <div id="rc-diff-table"></div>
+          <div id="rc-notfound"></div>
+        </div>
+
+        <!-- Log -->
+        <div class="log-box" id="rc-log"><span class="log-info">等待執行...</span></div>
+      </div>
+    </div><!-- /acc-reconcile -->
+
+
+    <!-- ════════════════════════════════════════════
+         #2  Repair Danger Cancel betStatus
+    ════════════════════════════════════════════ -->
+    <div class="acc-item" id="acc-repair-danger">
+      <div class="acc-header" onclick="toggleAcc('repair-danger')">
+        <div class="acc-icon">⚽</div>
+        <div class="acc-meta">
+          <div class="acc-title">修復取消類 betStatus <span class="tag tag-orange">CANCEL(4)+DANGER(5) D→X</span></div>
+          <div class="acc-desc">體育注單一般取消(status=4) 及 危險球取消(status=5) 因 enum 代碼混用導致 betStatus="D"，應為"X"。從 MySQL 比對後批次更新 MongoDB</div>
+        </div>
+        <span class="acc-arrow">▼</span>
+      </div>
+      <div class="acc-body">
+        <div class="form-grid">
+          <div class="form-field">
+            <label>Start Time (GMT-4) *</label>
+            <input id="rd-start" type="text" placeholder="2026-03-01 00:00:00">
+          </div>
+          <div class="form-field">
+            <label>End Time (GMT-4) *</label>
+            <input id="rd-end" type="text" placeholder="2026-03-25 23:59:59">
+          </div>
+          <div class="span2 btn-row">
+            <button class="btn btn-primary" id="rd-btn" onclick="runRepairDanger()">⚽ 執行修復</button>
+            <button class="btn btn-ghost" onclick="clearRepairDanger()">清除</button>
+            <span class="running-hint" id="rd-hint"><span class="spinner"></span>修復中...</span>
+          </div>
+        </div>
+        <div class="result-wrap" id="rd-result">
+          <div class="stat-bar" id="rd-stats"></div>
+        </div>
+        <div class="log-box" id="rd-log"><span class="log-info">等待執行...</span></div>
+      </div>
+    </div>
+
+
+    <!-- ════════════════════════════════════════════
+         #3  修復 platformCode
+    ════════════════════════════════════════════ -->
+    <div class="acc-item" id="acc-repair-platform">
+      <div class="acc-header" onclick="toggleAcc('repair-platform')">
+        <div class="acc-icon">🏷️</div>
+        <div class="acc-meta">
+          <div class="acc-title">修復 platformCode <span class="tag tag-purple">MongoDB patch</span></div>
+          <div class="acc-desc">依 megaxcess_game_type_mapping 重新寫入 megaxcess_audit_order.platformCode（如將舊資料的 EBINGO / EGAMES 改為 ECASINO）</div>
+        </div>
+        <span class="acc-arrow">▼</span>
+      </div>
+      <div class="acc-body">
+        <div class="form-grid">
+          <div class="form-field span2">
+            <label>Provider *</label>
+            <select id="rp-provider">
+              <option value="">-- 選擇 Provider --</option>
+              <option value="15">15 - CQ9</option>
+              <option value="18">18 - JDB_SLOT</option>
+              <option value="38">38 - JILI</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Start Date (GMT-4)（選填，不選 = 全量）</label>
+            <div style="display:flex;gap:6px;">
+              <select id="rp-start-y" style="flex:2;background:var(--input-bg);border:1px solid var(--border);color:var(--text);padding:8px 6px;border-radius:6px;font-size:12px;"></select>
+              <select id="rp-start-m" style="flex:1;background:var(--input-bg);border:1px solid var(--border);color:var(--text);padding:8px 6px;border-radius:6px;font-size:12px;"></select>
+              <select id="rp-start-d" style="flex:1;background:var(--input-bg);border:1px solid var(--border);color:var(--text);padding:8px 6px;border-radius:6px;font-size:12px;"></select>
+            </div>
+          </div>
+          <div class="form-field">
+            <label>End Date (GMT-4)（選填）</label>
+            <div style="display:flex;gap:6px;">
+              <select id="rp-end-y" style="flex:2;background:var(--input-bg);border:1px solid var(--border);color:var(--text);padding:8px 6px;border-radius:6px;font-size:12px;"></select>
+              <select id="rp-end-m" style="flex:1;background:var(--input-bg);border:1px solid var(--border);color:var(--text);padding:8px 6px;border-radius:6px;font-size:12px;"></select>
+              <select id="rp-end-d" style="flex:1;background:var(--input-bg);border:1px solid var(--border);color:var(--text);padding:8px 6px;border-radius:6px;font-size:12px;"></select>
+            </div>
+          </div>
+          <div class="span2 btn-row">
+            <button class="btn btn-primary" id="rp-btn" onclick="runRepairPlatform()">🏷️ 執行修復</button>
+            <button class="btn btn-ghost" onclick="clearRepairPlatform()">清除</button>
+            <span class="running-hint" id="rp-hint"><span class="spinner"></span>修復中，全量掃描可能需要數分鐘...</span>
+          </div>
+        </div>
+
+        <!-- 結果 -->
+        <div class="result-wrap" id="rp-result">
+          <div class="stat-bar" id="rp-stats"></div>
+          <div id="rp-notfound"></div>
+        </div>
+
+        <!-- Log -->
+        <div class="log-box" id="rp-log"><span class="log-info">等待執行...</span></div>
+      </div>
+    </div><!-- /acc-repair-platform -->
+
+
+    <!-- ════════════════════════════════════════════
+         #4  MegaXcess 開關（預留）
+    ════════════════════════════════════════════ -->
+    <div class="acc-item" id="acc-switch">
+      <div class="acc-header" onclick="toggleAcc('switch')">
+        <div class="acc-icon">🔛</div>
+        <div class="acc-meta">
+          <div class="acc-title">MegaXcess 開關 <span class="tag tag-green">Coming Soon</span></div>
+          <div class="acc-desc">啟用 / 停用指定 vendor 的 MegaXcess 合規 audit 功能</div>
+        </div>
+        <span class="acc-arrow">▼</span>
+      </div>
+      <div class="acc-body">
+        <div class="empty">🚧 功能開發中...</div>
+      </div>
+    </div>
+
+
+    <!-- ════════════════════════════════════════════
+         #3  查詢 MegaXcess 資料（預留）
+    ════════════════════════════════════════════ -->
+    <div class="acc-item" id="acc-query">
+      <div class="acc-header" onclick="toggleAcc('query')">
+        <div class="acc-icon">📊</div>
+        <div class="acc-meta">
+          <div class="acc-title">查詢 MegaXcess 資料 <span class="tag tag-orange">Coming Soon</span></div>
+          <div class="acc-desc">依條件查詢 megaxcess_audit_order MongoDB 資料，支援時間範圍、betId、provider 篩選</div>
+        </div>
+        <span class="acc-arrow">▼</span>
+      </div>
+      <div class="acc-body">
+        <div class="empty">🚧 功能開發中...</div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script src="domain-config.js"></script>
+<script>
+// ── Accordion 開關 ──────────────────────────
+function toggleAcc(id) {
+  const el = document.getElementById('acc-' + id);
+  el.classList.toggle('open');
+}
+
+// ── Dev Key ──────────────────────────────────
+async function fetchDevKey() {
+  const url = 'https://tiger-dev.servicelab.sh/platform/sysmaintenance/devKey';
+  const st  = document.getElementById('keyStatus');
+  if (st) { st.textContent = '取得中...'; st.style.color = '#e3b341'; }
+  try {
+    const res  = await fetch(url);
+    const json = await res.json();
+    const key  = json?.data?.key;
+    if (!key) throw new Error('回傳格式異常');
+    document.getElementById('devKey').value = key;
+    if (st) { st.textContent = '✓ 取得成功'; st.style.color = '#34d399'; }
+  } catch (e) {
+    if (st) { st.textContent = '✗ ' + e.message; st.style.color = '#f87171'; }
+    else alert('❌ ' + e.message);
+  }
+}
+
+// ── 工具函式 ───────────────────────────────
+function getBaseUrl() { return getBase(); }
+function getToken()   { const t = document.getElementById('token').value.trim(); return t ? (t.startsWith('Bearer') ? t : `Bearer ${t}`) : null; }
+function buildHeaders() {
+  const h = { 'Content-Type': 'application/json' };
+  const t = getToken(); if (t) h['Authorization'] = t;
+  const referer = document.getElementById('referer').value.trim();
+  if (referer) h['Referer'] = referer;
+  const currency = document.getElementById('currency').value.trim();
+  if (currency) h['currency'] = currency;
+  const xff = document.getElementById('xForwardedFor').value.trim();
+  if (xff) h['x-forwarded-for'] = xff;
+  return h;
+}
+
+function appendLog(logId, msg, type = 'info') {
+  const box = document.getElementById(logId);
+  const now = new Date().toLocaleTimeString('zh-TW', { hour12: false });
+  const span = document.createElement('span');
+  span.className = 'log-' + type;
+  span.textContent = `[${now}] ${msg}`;
+  box.appendChild(span);
+  box.appendChild(document.createElement('br'));
+  box.scrollTop = box.scrollHeight;
+}
+function clearLog(logId) { document.getElementById(logId).innerHTML = ''; }
+
+function copyText(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    appendLog('rc-log', `已複製: ${text}`, 'ok');
+  }).catch(() => { prompt('複製 betId：', text); });
+}
+
+// ── #1 Reconcile ───────────────────────────
+async function runReconcile() {
+  const start    = document.getElementById('rc-start').value.trim();
+  const end      = document.getElementById('rc-end').value.trim();
+  const provider = document.getElementById('rc-provider').value;
+  const vendor   = document.getElementById('rc-vendor').value.trim();
+  if (!start || !end || !provider || !vendor) { alert('請填寫所有必填欄位'); return; }
+
+  const btn = document.getElementById('rc-btn');
+  btn.disabled = true;
+  document.getElementById('rc-hint').classList.add('show');
+  const prog = document.getElementById('rc-prog');
+  const fill = document.getElementById('rc-prog-fill');
+  const label = document.getElementById('rc-prog-label');
+  prog.classList.add('show');
+  fill.style.width = '0%';
+  label.textContent = '發送請求中...';
+  clearLog('rc-log');
+
+  let fake = 0;
+  const timer = setInterval(() => {
+    if (fake < 88) { fake += Math.random() * 2.5; fill.style.width = fake + '%'; label.textContent = `處理中... ~${Math.round(fake)}%`; }
+  }, 500);
+
+  const params = new URLSearchParams({ start, end, provider, vendor });
+  const url = `${getBaseUrl()}/platform/thirdparty/thirdparty-game/test/megaxcess-audit-reconcile?${params}`;
+  appendLog('rc-log', `GET ${url}`, 'info');
+
+  try {
+    const res = await fetch('/proxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, headers: buildHeaders(), method: 'GET' })
+    });
+    clearInterval(timer);
+    fill.style.width = '100%';
+    label.textContent = `完成 HTTP ${res.status}`;
+
+    const json = await res.json();
+    appendLog('rc-log', `HTTP ${res.status}`, res.ok ? 'ok' : 'err');
+    if (!res.ok) { appendLog('rc-log', JSON.stringify(json), 'err'); return; }
+
+    const d = json.data || json;
+    appendLog('rc-log', `totalBuckets=${d.totalBuckets} clean=${d.cleanBuckets} mismatch=${d.mismatchBuckets} missing=${d.totalMissingBetIds}`, 'ok');
+    renderReconcileResult(d);
+
+  } catch (e) {
+    clearInterval(timer); fill.style.width = '100%'; label.textContent = '請求失敗';
+    appendLog('rc-log', `失敗: ${e.message}`, 'err');
+  } finally {
+    btn.disabled = false;
+    document.getElementById('rc-hint').classList.remove('show');
+  }
+}
+
+function renderReconcileResult(d) {
+  // Stats
+  document.getElementById('rc-stats').innerHTML = `
+    <div class="stat-box"><div class="stat-label">Total Buckets</div><div class="stat-value sv-total">${d.totalBuckets ?? '-'}</div></div>
+    <div class="stat-box"><div class="stat-label">Clean</div><div class="stat-value sv-clean">${d.cleanBuckets ?? '-'}</div></div>
+    <div class="stat-box"><div class="stat-label">Mismatch</div><div class="stat-value sv-warn">${d.mismatchBuckets ?? '-'}</div></div>
+    <div class="stat-box"><div class="stat-label">Missing BetIds</div><div class="stat-value sv-danger">${d.totalMissingBetIds ?? '-'}</div></div>
+  `;
+
+  // Replay stats
+  const rr = document.getElementById('rc-replay-stats');
+  if (d.replayResult) {
+    const r = d.replayResult;
+    const notFoundCount = (r.notFoundBetIds || []).length;
+    rr.innerHTML = `
+      <div class="stat-bar" style="margin-top:8px;">
+        <div class="stat-box"><div class="stat-label">Kafka Found</div><div class="stat-value sv-blue">${r.found ?? 0}</div></div>
+        <div class="stat-box"><div class="stat-label">Upserted</div><div class="stat-value sv-clean">${r.upserted ?? 0}</div></div>
+        <div class="stat-box"><div class="stat-label">Not in Kafka</div><div class="stat-value sv-danger">${notFoundCount}</div></div>
+      </div>
+    `;
+    if (notFoundCount > 0) {
+      document.getElementById('rc-notfound').innerHTML = `
+        <div style="color:#f87171; font-size:12px; font-weight:700; margin-top:10px;">⚠️ Kafka Retention 已過期，以下 betId 無法補回：</div>
+        <div class="notfound-box">${(r.notFoundBetIds || []).map(id => `<code>${id}</code>`).join('')}</div>
+      `;
+    }
+  } else { rr.innerHTML = ''; }
+
+  // Diff table
+  const dt = document.getElementById('rc-diff-table');
+  if (d.bucketDiffs && d.bucketDiffs.length > 0) {
+    const rows = d.bucketDiffs.map(b => {
+      const pills = (b.missingBetIds || []).map(id =>
+        `<span class="pill" onclick="copyText('${id}')">${id}</span>`).join('');
+      return `<tr>
+        <td style="font-family:monospace;font-size:10px;color:#94a3b8;">${b.bucketStart}</td>
+        <td style="text-align:center;">${b.overviewCount}</td>
+        <td style="text-align:center;">${b.mongoCount}</td>
+        <td style="text-align:center;color:#f87171;font-weight:700;">${(b.missingBetIds||[]).length}</td>
+        <td><div class="missing-pills">${pills}</div></td>
+      </tr>`;
+    }).join('');
+    dt.innerHTML = `
+      <div style="font-size:12px;font-weight:700;color:#f1f5f9;margin-top:14px;margin-bottom:8px;">🪣 Mismatch Bucket 明細</div>
+      <div style="overflow-x:auto;">
+        <table class="diff-table">
+          <thead><tr>
+            <th>Bucket Start (UTC)</th><th style="text-align:center;">Overview</th>
+            <th style="text-align:center;">MongoDB</th><th style="text-align:center;">Missing</th>
+            <th>Missing BetIds（點擊複製）</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+    appendLog('rc-log', `顯示 ${d.bucketDiffs.length} 個 mismatch bucket`, 'warn');
+  } else {
+    dt.innerHTML = '<div style="color:#34d399;font-size:13px;margin-top:12px;font-weight:600;">✅ 所有 bucket 一致，無缺漏</div>';
+    appendLog('rc-log', '所有 bucket 一致 ✓', 'ok');
+  }
+
+  document.getElementById('rc-result').classList.add('show');
+}
+
+function clearReconcile() {
+  document.getElementById('rc-result').classList.remove('show');
+  document.getElementById('rc-prog').classList.remove('show');
+  document.getElementById('rc-stats').innerHTML = '';
+  document.getElementById('rc-replay-stats').innerHTML = '';
+  document.getElementById('rc-diff-table').innerHTML = '';
+  document.getElementById('rc-notfound').innerHTML = '';
+  clearLog('rc-log');
+  appendLog('rc-log', '已清除', 'info');
+}
+
+// ── #2 Repair Danger Cancel ─────────────────
+async function runRepairDanger() {
+  const start = document.getElementById('rd-start').value.trim();
+  const end   = document.getElementById('rd-end').value.trim();
+  if (!start || !end) { alert('請填寫起始與結束時間'); return; }
+
+  const btn = document.getElementById('rd-btn');
+  btn.disabled = true;
+  document.getElementById('rd-hint').classList.add('show');
+  clearLog('rd-log');
+  appendLog('rd-log', `修復範圍: ${start} ~ ${end}`, 'info');
+
+  const params = new URLSearchParams({ start, end });
+  const url = `${getBaseUrl()}/platform/thirdparty/thirdparty-game/test/repair-cancelled-bet-status?${params}`;
+  appendLog('rd-log', `GET ${url}`, 'info');
+
+  try {
+    const res = await fetch('/proxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, headers: buildHeaders(), method: 'GET' })
+    });
+    const json = await res.json();
+    appendLog('rd-log', `HTTP ${res.status}`, res.ok ? 'ok' : 'err');
+    if (!res.ok) { appendLog('rd-log', JSON.stringify(json), 'err'); return; }
+
+    const d = json.data || json;
+    appendLog('rd-log', `mysqlFound=${d.mysqlFound}  mongoUpdated=${d.mongoUpdated}`, 'ok');
+    document.getElementById('rd-stats').innerHTML = `
+      <div class="stat-box"><div class="stat-label">MySQL 取消類注單 (status 4+5)</div><div class="stat-value sv-warn">${d.mysqlFound ?? '-'}</div></div>
+      <div class="stat-box"><div class="stat-label">MongoDB betStatus D→X 已更新</div><div class="stat-value sv-clean">${d.mongoUpdated ?? '-'}</div></div>
+    `;
+    document.getElementById('rd-result').classList.add('show');
+  } catch (e) {
+    appendLog('rd-log', `失敗: ${e.message}`, 'err');
+  } finally {
+    btn.disabled = false;
+    document.getElementById('rd-hint').classList.remove('show');
+  }
+}
+
+function clearRepairDanger() {
+  document.getElementById('rd-result').classList.remove('show');
+  document.getElementById('rd-stats').innerHTML = '';
+  clearLog('rd-log');
+  appendLog('rd-log', '已清除', 'info');
+}
+
+// ── #3 Repair Platform Code ─────────────────
+async function runRepairPlatform() {
+  const provider = document.getElementById('rp-provider').value;
+  if (!provider) { alert('請選擇 Provider'); return; }
+  const startY = document.getElementById('rp-start-y').value;
+  const startM = document.getElementById('rp-start-m').value;
+  const startD = document.getElementById('rp-start-d').value;
+  const endY   = document.getElementById('rp-end-y').value;
+  const endM   = document.getElementById('rp-end-m').value;
+  const endD   = document.getElementById('rp-end-d').value;
+  const start  = (startY && startM && startD) ? `${startY}-${startM}-${startD} 00:00:00` : '';
+  const end    = (endY   && endM   && endD)   ? `${endY}-${endM}-${endD} 23:59:59`       : '';
+
+  const btn = document.getElementById('rp-btn');
+  btn.disabled = true;
+  document.getElementById('rp-hint').classList.add('show');
+  clearLog('rp-log');
+  appendLog('rp-log', `Provider: ${provider}${start ? '  範圍: ' + start + ' ~ ' + end : '  全量掃描'}`, 'info');
+
+  const params = new URLSearchParams({ providerCode: provider });
+  if (start) params.set('start', start);
+  if (end)   params.set('end', end);
+  const url = `${getBaseUrl()}/platform/thirdparty/thirdparty-game/test/repair-platform-code?${params}`;
+  appendLog('rp-log', `GET ${url}`, 'info');
+
+  try {
+    const res = await fetch('/proxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, headers: buildHeaders(), method: 'GET' })
+    });
+    const json = await res.json();
+    appendLog('rp-log', `HTTP ${res.status}`, res.ok ? 'ok' : 'err');
+    if (!res.ok) { appendLog('rp-log', JSON.stringify(json), 'err'); return; }
+
+    const d = json.data || json;
+    const updated  = d.updated  ?? '-';
+    const skipped  = d.skipped  ?? '-';
+    const notFound = d.notFound ?? (d.notFoundDetails ? d.notFoundDetails.length : '-');
+    appendLog('rp-log', `updated=${updated}  skipped=${skipped}  cache miss=${notFound}`, 'ok');
+
+    document.getElementById('rp-stats').innerHTML = `
+      <div class="stat-box"><div class="stat-label">已更新</div><div class="stat-value sv-clean">${updated}</div></div>
+      <div class="stat-box"><div class="stat-label">已跳過（值相同）</div><div class="stat-value sv-total">${skipped}</div></div>
+      <div class="stat-box"><div class="stat-label">Cache Miss</div><div class="stat-value sv-warn">${notFound}</div></div>
+    `;
+
+    const nfBox = document.getElementById('rp-notfound');
+    const details = d.notFoundDetails || d.notFoundList || [];
+    if (details.length > 0) {
+      nfBox.innerHTML = `
+        <div style="color:#fbbf24;font-size:12px;font-weight:700;margin-top:10px;">⚠️ 以下 gameCode 在 megaxcess_game_type_mapping 找不到對應（${details.length} 筆）：</div>
+        <div class="notfound-box">${details.map(v => `<code>${v}</code>`).join('')}</div>
+      `;
+    } else {
+      nfBox.innerHTML = '';
+    }
+
+    document.getElementById('rp-result').classList.add('show');
+  } catch (e) {
+    appendLog('rp-log', `失敗: ${e.message}`, 'err');
+  } finally {
+    btn.disabled = false;
+    document.getElementById('rp-hint').classList.remove('show');
+  }
+}
+
+function clearRepairPlatform() {
+  document.getElementById('rp-result').classList.remove('show');
+  document.getElementById('rp-stats').innerHTML = '';
+  document.getElementById('rp-notfound').innerHTML = '';
+  clearLog('rp-log');
+  appendLog('rp-log', '已清除', 'info');
+}
+
+// ── platformCode 日期下拉初始化 ──────────────
+function buildDateDropdowns(yId, mId, dId, defaultDate) {
+  const yEl = document.getElementById(yId);
+  const mEl = document.getElementById(mId);
+  const dEl = document.getElementById(dId);
+
+  // Year: 空白選項 + 2024~2027
+  yEl.innerHTML = '<option value="">年</option>';
+  for (let y = 2024; y <= 2027; y++) {
+    const opt = document.createElement('option');
+    opt.value = String(y); opt.textContent = String(y);
+    yEl.appendChild(opt);
+  }
+  // Month
+  mEl.innerHTML = '<option value="">月</option>';
+  for (let m = 1; m <= 12; m++) {
+    const opt = document.createElement('option');
+    const mv = String(m).padStart(2, '0');
+    opt.value = mv; opt.textContent = mv;
+    mEl.appendChild(opt);
+  }
+  // Day
+  dEl.innerHTML = '<option value="">日</option>';
+  for (let d = 1; d <= 31; d++) {
+    const opt = document.createElement('option');
+    const dv = String(d).padStart(2, '0');
+    opt.value = dv; opt.textContent = dv;
+    dEl.appendChild(opt);
+  }
+
+  // 預設值
+  if (defaultDate) {
+    const parts = defaultDate.split('-');
+    yEl.value = parts[0];
+    mEl.value = parts[1];
+    dEl.value = parts[2];
+  }
+}
+
+// ── 初始化 ─────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  renderDomainSelect('domain-select-container');
+  // 預填今日 GMT-4
+  const gmt4 = new Date(Date.now() - 4 * 3600 * 1000);
+  const d = gmt4.toISOString().slice(0, 10);
+  document.getElementById('rc-start').value = `${d} 00:00:00`;
+  document.getElementById('rc-end').value   = `${d} 23:59:59`;
+  document.getElementById('rd-start').value = `${d} 00:00:00`;
+  document.getElementById('rd-end').value   = `${d} 23:59:59`;
+
+  // 修復 platformCode：日期下拉，預設今日
+  buildDateDropdowns('rp-start-y', 'rp-start-m', 'rp-start-d', d);
+  buildDateDropdowns('rp-end-y',   'rp-end-m',   'rp-end-d',   d);
+
+  // 預設展開第一個
+  document.getElementById('acc-reconcile').classList.add('open');
+});
+</script>
+</body>
+</html>
