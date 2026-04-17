@@ -36,6 +36,7 @@ FETCH_WORKERS  = 20   # 併發打 GitLab API 數量
 EXCLUDED_PROJECTS = {
     "tiger-tools",
     "tiger-value",
+    "tiger-values",
     "tiger-wallet",
     "tiger-sqlddl",
     "tiger-sign",
@@ -169,7 +170,8 @@ class App(tk.Tk):
             ("單筆切 Branch",     self._on_single_branch),
             ("批次一鍵切 Branch", self._on_batch_branch),
             ("全選 / 全不選",     self._on_toggle_all),
-            ("同步 GAME/COMMON",  self._on_sync_game_common),
+            ("同步 GAME",         self._on_sync_game),
+            ("同步 COMMON",       self._on_sync_common),
         ]
         for text, cmd in buttons:
             ttk.Button(bar, text=text, command=cmd, width=16).pack(side=tk.LEFT, padx=3)
@@ -343,8 +345,88 @@ class App(tk.Tk):
     def _ver_tuple(ver: str) -> tuple:
         return tuple(int(x) for x in ver.strip().lstrip("v").split("."))
 
-    # ── Sync GAME/COMMON ──────────────────────
-    def _on_sync_game_common(self):
+    # ── Sync GAME / COMMON ────────────────────
+    def _get_lib_version(self, lib_name: str, svc) -> str | None:
+        """
+        取得 lib_name 應使用的版本（不含 v 前綴）：
+        - 本地 branch 以 release 開頭 → 從 branch 名稱解析版本號
+        - 否則 → 從 GitLab 取最新 release tag
+        """
+        lib_path = self._resolve_path(lib_name)
+        git = git_svc.GitService(lib_path)
+        if git.is_valid_repo():
+            branch = git.current_branch()
+            m = re.match(r'^release[/\-](\d+\.\d+\.\d+)$', branch)
+            if m:
+                ver = m.group(1)
+                self.after(0, lambda n=lib_name, b=branch, v=ver: self.log_inf(
+                    f"{n}: 本地 branch={b}，使用版本 v{v}"))
+                return ver
+
+        # 本地不在 release branch，改用線上最新 tag
+        pid = next((p.project_id for p in self.projects if p.name == lib_name), None)
+        if pid is None:
+            try:
+                pid = svc.find_project_id_by_name(lib_name)
+            except Exception:
+                pass
+        if pid:
+            try:
+                tags   = svc.get_tags(pid)
+                latest = vp.get_latest_tag(tags)
+                if latest:
+                    m = re.match(r'^release-(\d+\.\d+\.\d+)$', latest)
+                    if m:
+                        ver = m.group(1)
+                        self.after(0, lambda n=lib_name, t=latest, v=ver: self.log_inf(
+                            f"{n}: 線上最新 tag={t}，使用版本 v{v}"))
+                        return ver
+            except Exception as e:
+                self.after(0, lambda n=lib_name, ex=e: self.log_err(
+                    f"{n}: 取線上 tag 失敗: {ex}"))
+        return None
+
+    def _on_sync_game(self):
+        """同步 tiger-game 版本，僅對 tiger-thirdparty / tiger-thirdparty-payment 有效"""
+        game_projects = {"tiger-thirdparty", "tiger-thirdparty-payment"}
+        targets = [p for p in self.projects if p.checked and p.name in game_projects]
+        if not targets:
+            messagebox.showinfo("提示", "請勾選 tiger-thirdparty 或 tiger-thirdparty-payment")
+            return
+        svc = self._make_gitlab()
+        if not svc:
+            return
+
+        def worker():
+            self.after(0, lambda: self.log_inf("── 開始同步 tiger-game 版本 ──"))
+            ver = self._get_lib_version("tiger-game", svc)
+            if not ver:
+                self.after(0, lambda: self.log_err("tiger-game: 無法取得版本資訊，中止"))
+                return
+            self.after(0, lambda v=ver: self.log_inf(f"tiger-game: 採用版本 v{v}"))
+            for p in targets:
+                pom_path = os.path.join(p.local_path, "pom.xml")
+                cur_ver  = self._parse_pom_version(pom_path, "tiger.game.version")
+                if cur_ver is None:
+                    self.after(0, lambda pn=p.name: self.log_err(
+                        f"{pn}: pom.xml 找不到 <tiger.game.version>，跳過"))
+                    continue
+                if self._ver_tuple(cur_ver) == self._ver_tuple(ver):
+                    self.after(0, lambda pn=p.name, v=cur_ver: self.log_inf(
+                        f"{pn}: 已是 v{v}，無需更新"))
+                    continue
+                changed = self._update_pom_version(pom_path, "tiger.game.version", ver)
+                if changed:
+                    self.after(0, lambda pn=p.name, ov=cur_ver, nv=ver: self.log_ok(
+                        f"{pn}: <tiger.game.version>  v{ov}  →  v{nv}"))
+                else:
+                    self.after(0, lambda pn=p.name: self.log_err(f"{pn}: 更新 pom.xml 失敗"))
+            self.after(0, lambda: self.log_inf("同步 GAME 完成"))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_sync_common(self):
+        """同步 tiger-common 版本，對所有已勾選專案有效"""
         targets = [p for p in self.projects if p.checked]
         if not targets:
             messagebox.showinfo("提示", "請勾選至少一個專案")
@@ -353,88 +435,31 @@ class App(tk.Tk):
         if not svc:
             return
 
-        def _get_project_id(name: str) -> int | None:
-            """先從已載入清單找，找不到再打 API"""
-            found = next((p for p in self.projects if p.name == name), None)
-            if found:
-                return found.project_id
-            try:
-                return svc.find_project_id_by_name(name)
-            except Exception:
-                return None
-
-        def _resolve_latest(lib_name: str, pom_tag: str) -> str | None:
-            """
-            取 API 最新 tag 版本 與 本地 pom.xml 版本，回傳較高者。
-            任一來源取得失敗時只用另一方；兩者都失敗回傳 None。
-            """
-            # ── API tag ──────────────────────
-            api_ver = None
-            pid = _get_project_id(lib_name)
-            if pid:
-                try:
-                    tags   = svc.get_tags(pid)
-                    latest = vp.get_latest_tag(tags)
-                    if latest:
-                        m = re.match(r'^release-(\d+\.\d+\.\d+)$', latest)
-                        if m:
-                            api_ver = m.group(1)
-                            self.after(0, lambda lv=api_ver: self.log_inf(
-                                f"{lib_name}: API 最新 tag = release-{lv}"))
-                except Exception as e:
-                    self.after(0, lambda ex=e: self.log_err(f"{lib_name}: 取 API tag 失敗: {ex}"))
-
-            # ── 本地 pom ─────────────────────
-            local_pom = os.path.join(self._resolve_path(lib_name), "pom.xml")
-            local_ver = self._parse_pom_version(local_pom, pom_tag)
-            if local_ver:
-                self.after(0, lambda lv=local_ver: self.log_inf(
-                    f"{lib_name}: 本地 pom.xml <{pom_tag}> = v{lv}"))
-            else:
-                self.after(0, lambda: self.log_err(
-                    f"{lib_name}: 無法讀取本地 pom.xml ({local_pom})"))
-
-            # ── 取較高版本 ───────────────────
-            candidates = [v for v in (api_ver, local_ver) if v]
-            if not candidates:
-                return None
-            return max(candidates, key=self._ver_tuple)
-
         def worker():
-            libs = [
-                ("tiger-common", "tiger.common.version"),
-                ("tiger-game",   "tiger.game.version"),
-            ]
-            for lib_name, pom_tag in libs:
-                self.after(0, lambda n=lib_name: self.log_inf(f"── 開始比對 {n} ──"))
-                best_ver = _resolve_latest(lib_name, pom_tag)
-                if not best_ver:
-                    self.after(0, lambda n=lib_name: self.log_err(
-                        f"{n}: 無法取得版本資訊，跳過"))
+            self.after(0, lambda: self.log_inf("── 開始同步 tiger-common 版本 ──"))
+            ver = self._get_lib_version("tiger-common", svc)
+            if not ver:
+                self.after(0, lambda: self.log_err("tiger-common: 無法取得版本資訊，中止"))
+                return
+            self.after(0, lambda v=ver: self.log_inf(f"tiger-common: 採用版本 v{v}"))
+            for p in targets:
+                pom_path = os.path.join(p.local_path, "pom.xml")
+                cur_ver  = self._parse_pom_version(pom_path, "tiger.common.version")
+                if cur_ver is None:
+                    self.after(0, lambda pn=p.name: self.log_err(
+                        f"{pn}: pom.xml 找不到 <tiger.common.version>，跳過"))
                     continue
-                self.after(0, lambda n=lib_name, v=best_ver: self.log_inf(
-                    f"{n}: 採用版本 v{v}"))
-
-                for p in targets:
-                    pom_path = os.path.join(p.local_path, "pom.xml")
-                    cur_ver  = self._parse_pom_version(pom_path, pom_tag)
-                    if cur_ver is None:
-                        self.after(0, lambda pn=p.name, t=pom_tag: self.log_err(
-                            f"{pn}: pom.xml 找不到 <{t}>，跳過"))
-                        continue
-                    if self._ver_tuple(cur_ver) == self._ver_tuple(best_ver):
-                        self.after(0, lambda pn=p.name, v=cur_ver: self.log_inf(
-                            f"{pn}: 已是 v{v}，無需更新"))
-                        continue
-                    changed = self._update_pom_version(pom_path, pom_tag, best_ver)
-                    if changed:
-                        self.after(0, lambda pn=p.name, ov=cur_ver, nv=best_ver, t=pom_tag: self.log_ok(
-                            f"{pn}: <{t}>  v{ov}  →  v{nv}"))
-                    else:
-                        self.after(0, lambda pn=p.name: self.log_err(
-                            f"{pn}: 更新 pom.xml 失敗"))
-
-            self.after(0, lambda: self.log_inf("同步完成"))
+                if self._ver_tuple(cur_ver) == self._ver_tuple(ver):
+                    self.after(0, lambda pn=p.name, v=cur_ver: self.log_inf(
+                        f"{pn}: 已是 v{v}，無需更新"))
+                    continue
+                changed = self._update_pom_version(pom_path, "tiger.common.version", ver)
+                if changed:
+                    self.after(0, lambda pn=p.name, ov=cur_ver, nv=ver: self.log_ok(
+                        f"{pn}: <tiger.common.version>  v{ov}  →  v{nv}"))
+                else:
+                    self.after(0, lambda pn=p.name: self.log_err(f"{pn}: 更新 pom.xml 失敗"))
+            self.after(0, lambda: self.log_inf("同步 COMMON 完成"))
 
         threading.Thread(target=worker, daemon=True).start()
 
