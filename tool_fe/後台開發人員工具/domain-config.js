@@ -23,6 +23,8 @@
         { label: '特斯拉 (p12)', value: 'https://vd012-tiger-api.mppwr.com' },
         { label: 'Meta (p13)',  value: 'https://vd013-tiger-api.mppwr.com' },
         { label: 'ByBet (p14)', value: 'https://tiger-prod-vd014.servicezone.io' },
+        { label: '寰宇 (p15)', value: 'https://tiger-prod-vd014.servicezone.io' },
+        { label: 'spaceX (p16)', value: 'https://tiger-prod-vd015.servicezone.io' },
       ]
     },
     {
