@@ -259,6 +259,11 @@
   .btn-purple:hover { background: var(--purple-dark); }
   .btn-gray { background: #334155; color: var(--text); }
   .btn-gray:hover { background: #475569; }
+  .btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
   .btn-icon {
     background: none;
     border: 1px solid var(--border);
@@ -277,6 +282,18 @@
     gap: 8px;
     flex-wrap: wrap;
     align-items: center;
+  }
+
+  .inline-input-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .status-text {
+    font-size: 11px;
+    color: var(--muted);
+    min-height: 14px;
   }
 
   /* Form grid */
@@ -649,6 +666,23 @@
 <div class="layout">
   <!-- Sidebar -->
   <aside class="sidebar">
+    <div class="sidebar-title">連線設定</div>
+
+    <div class="form-group">
+      <div id="domain-select-container"></div>
+    </div>
+
+    <div class="form-group">
+      <label>Developer Key (<code style="color:#fbbf24;font-size:11px;">?key=xxx</code>)</label>
+      <div class="inline-input-row">
+        <input type="text" id="devKey" placeholder="點擊右側按鈕取得" style="flex:1;font-family:monospace;">
+        <button class="btn btn-gray" onclick="fetchDevKey()" title="自動取得 Dev Key" style="font-size:11px;padding:7px 10px;white-space:nowrap;">🔑 取得</button>
+      </div>
+      <span class="status-text" id="keyStatus"></span>
+    </div>
+
+    <div class="divider"></div>
+
     <div class="sidebar-title">全域設定</div>
 
     <div class="form-group">
@@ -705,6 +739,7 @@
     <div class="tabs">
       <button class="tab-btn active" onclick="switchTab(0, this)">新增設定</button>
       <button class="tab-btn" onclick="switchTab(1, this)">SQL 輸出</button>
+      <button class="tab-btn" onclick="switchTab(2, this)">清除快取</button>
     </div>
 
     <!-- Tab 0: Add Settings -->
@@ -822,11 +857,40 @@
         <div class="sql-output" id="sqlOutput"></div>
       </div>
     </div>
+
+    <!-- Tab 2: Clear Cache -->
+    <div class="tab-panel" id="tab2">
+      <div class="card">
+        <div class="card-header">清除快取</div>
+
+        <div class="form-grid">
+          <div class="form-group full">
+            <label>清除類型</label>
+            <select id="clearOnboardingCacheType">
+              <option value="">清除全部快取</option>
+              <option value="1">只清 providerSetting</option>
+              <option value="2">清除其他 onboarding 快取</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="btn-row" style="margin-top:14px">
+          <button class="btn btn-green" id="clearOnboardingCacheBtn" onclick="clearOnboardingCache()">
+            <span>⟳</span> 清除遊戲商戶號快取
+          </button>
+        </div>
+
+        <div class="info-box" style="margin-top:14px">
+          不選擇 type 時不會帶 <code>type</code> 參數，後端會使用預設值清除全部快取。
+        </div>
+      </div>
+    </div>
   </main>
 </div>
 
 <div class="toast" id="toast"></div>
 
+<script src="domain-config.js"></script>
 <script>
 // ========== DATA ==========
 
@@ -958,6 +1022,11 @@ let editingRowIndex = null;
 // ========== INIT ==========
 
 function init() {
+  // Domain select
+  if (typeof renderDomainSelect === 'function') {
+    renderDomainSelect('domain-select-container');
+  }
+
   // Vendor select - show/hide custom input on init
   onVendorSelectChange();
 
@@ -1454,6 +1523,99 @@ function downloadSQL() {
   a.click();
   URL.revokeObjectURL(url);
   showToast(`已下載 ${filename}`);
+}
+
+// ========== API ==========
+
+async function fetchDevKey() {
+  const status = document.getElementById('keyStatus');
+  if (status) {
+    status.textContent = '取得中...';
+    status.style.color = '#fbbf24';
+  }
+
+  try {
+    const res = await fetch('https://tiger-dev.servicelab.sh/platform/sysmaintenance/devKey');
+    const json = await res.json();
+    const key = json && json.data && json.data.key;
+    if (!key) throw new Error(json.msg || '回傳格式異常');
+
+    document.getElementById('devKey').value = key;
+    if (status) {
+      status.textContent = '取得成功';
+      status.style.color = '#34d399';
+    }
+    showToast('Developer Key 已取得');
+  } catch (e) {
+    if (status) {
+      status.textContent = e.message;
+      status.style.color = '#f87171';
+    }
+    showToast('取得 Developer Key 失敗：' + e.message, 'error');
+  }
+}
+
+function buildDeveloperUrl(path, params) {
+  const base = getBase();
+  const url = new URL(base + path);
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      url.searchParams.set(key, value);
+    }
+  });
+  return url.toString();
+}
+
+async function clearOnboardingCache() {
+  const devKey = document.getElementById('devKey').value.trim();
+  if (!devKey) {
+    showToast('請先填入或取得 Developer Key', 'error');
+    return;
+  }
+
+  const type = document.getElementById('clearOnboardingCacheType').value;
+  const typeLabel = type === '1'
+    ? '只清 providerSetting'
+    : type === '2'
+      ? '清除其他 onboarding 快取'
+      : '清除全部快取';
+
+  if (!confirm(`確定要清除遊戲商戶號快取？\n\n類型：${typeLabel}${type ? ` (type=${type})` : ' (不帶 type，後端預設全部清除)'}`)) {
+    return;
+  }
+
+  const btn = document.getElementById('clearOnboardingCacheBtn');
+  const originalText = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span>⏳</span> 清除中...';
+
+  try {
+    const params = { key: devKey };
+    if (type) params.type = type;
+    const url = buildDeveloperUrl('/platform/thirdparty/developer/clearOnboardingCache', params);
+
+    const res = await fetch('/proxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, method: 'DELETE', headers: { 'Content-Type': 'application/json' } })
+    });
+
+    const text = await res.text();
+    let body;
+    try { body = JSON.parse(text); } catch { body = text; }
+
+    if (!res.ok || (body && typeof body === 'object' && body.code !== undefined && body.code !== 0)) {
+      const msg = body && typeof body === 'object' ? (body.msg || JSON.stringify(body)) : text;
+      throw new Error(`HTTP ${res.status} ${msg}`);
+    }
+
+    showToast('遊戲商戶號快取已清除');
+  } catch (e) {
+    showToast('清除快取失敗：' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalText;
+  }
 }
 
 // ========== TOAST ==========

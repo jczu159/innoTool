@@ -39,10 +39,10 @@
   .content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 
   /* ── Provider Tabs ── */
-  .tabs-bar { background: #1e293b; padding: 0 20px; display: flex; gap: 2px; border-bottom: 1px solid var(--border); overflow-x: auto; flex-shrink: 0; }
-  .tab { padding: 12px 16px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--muted); border-bottom: 2px solid transparent; white-space: nowrap; transition: color .15s, border-color .15s; display: flex; align-items: center; gap: 5px; user-select: none; }
+  .tabs-bar { background: #1e293b; padding: 8px 20px; display: flex; gap: 4px; border-bottom: 1px solid var(--border); flex-wrap: wrap; align-content: flex-start; flex-shrink: 0; max-height: 154px; overflow-y: auto; }
+  .tab { padding: 8px 12px; cursor: pointer; font-size: 12px; font-weight: 500; color: var(--muted); border-bottom: 2px solid transparent; white-space: nowrap; transition: color .15s, border-color .15s, background .15s; display: flex; align-items: center; gap: 5px; user-select: none; border-radius: 6px 6px 0 0; }
   .tab:hover { color: var(--text); }
-  .tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+  .tab.active { color: var(--blue); border-bottom-color: var(--blue); background: #0f172a; }
   .badge-sync { font-size: 10px; padding: 1px 6px; border-radius: 10px; font-weight: 600; background: #1d4ed8; color: #bfdbfe; }
   .badge-pull { font-size: 10px; padding: 1px 6px; border-radius: 10px; font-weight: 600; background: #065f46; color: #a7f3d0; }
 
@@ -168,7 +168,7 @@
         4. 設定時間後送出請求<br><br>
         <span style="color:#fbbf24;">⏰ 注意時區：</span><br>
         <span style="color:#79c0ff;">北京時間</span>：KY / V8<br>
-        <span style="color:#f0a742;">美東時間</span>：PT / KS / DB捕魚 / DB棋牌
+        <span style="color:#f0a742;">美東時間</span>：PT / 一般 Pull 拉單
       </div>
     </div>
   </aside>
@@ -189,7 +189,10 @@
 
     <div class="main">
       <datalist id="currency-opts">
-        <option value="CNY"><option value="USD"><option value="USDT"><option value="ALL">
+        <option value="CNY"><option value="USD"><option value="USDT"><option value="USDT_ERC20"><option value="USDT_TRC20">
+        <option value="MYR"><option value="IDR"><option value="VND"><option value="nIDR"><option value="nVND">
+        <option value="PHP"><option value="THB"><option value="JPY"><option value="KRW"><option value="INR">
+        <option value="BRL"><option value="NGN"><option value="BDT"><option value="ALL">
       </datalist>
 
       <!-- ── KY 棋牌 ── -->
@@ -436,7 +439,28 @@
 // ═══════════════════════════════════════════
 //  Config
 // ═══════════════════════════════════════════
-const TABS         = ['ky','v8','pt','ks','dbf','dbc','pd'];
+const GENERIC_PROVIDER_TABS = [
+  { tab:'dt',       code:3,  title:'DT 老虎機',        enumName:'DT' },
+  { tab:'agf',      code:5,  title:'AG 捕魚',          enumName:'FISHING' },
+  { tab:'agl',      code:6,  title:'AG 真人',          enumName:'LIVE' },
+  { tab:'bg',       code:8,  title:'BG 真人',          enumName:'BG_LIVE' },
+  { tab:'ags',      code:11, title:'AG 老虎機',        enumName:'AG_SLOT' },
+  { tab:'cq9',      code:15, title:'CQ9 老虎機',       enumName:'CQ9_SLOT' },
+  { tab:'pg',       code:16, title:'PG 老虎機',        enumName:'PG_SLOT' },
+  { tab:'jdbs',     code:18, title:'JDB 老虎機',       enumName:'JDB_SLOT' },
+  { tab:'evo',      code:21, title:'EVO 真人',         enumName:'EVO_LIVE' },
+  { tab:'pp',       code:22, title:'PP 老虎機',        enumName:'PP_SLOT' },
+  { tab:'jdbf',     code:24, title:'JDB 捕魚',         enumName:'JDB_FISHING' },
+  { tab:'pm',       code:32, title:'DB 真人',          enumName:'PM_LIVE' },
+  { tab:'wm',       code:33, title:'WM 真人',          enumName:'WM_LIVE' },
+  { tab:'mgp',      code:36, title:'MG+ 老虎機',       enumName:'MGPLUS' },
+  { tab:'jili',     code:38, title:'JILI 老虎機',      enumName:'JILI' },
+  { tab:'netent',   code:41, title:'NetEnt 老虎機',    enumName:'NETENT' },
+  { tab:'redtiger', code:42, title:'Red Tiger 老虎機', enumName:'REDTIGER' },
+  { tab:'tpg',      code:43, title:'TPG 老虎機',       enumName:'TPG_SLOT' },
+  { tab:'pk',       code:46, title:'PK 真人',          enumName:'PK_LIVE' },
+];
+const TABS         = ['ky','v8','pt','ks','dbf','dbc','pd', ...GENERIC_PROVIDER_TABS.map(p => p.tab)];
 const MAX_RESULTS  = 5;
 
 const dirty      = Object.fromEntries(TABS.map(t => [t, false]));
@@ -459,6 +483,72 @@ function getBaseUrlStrict() {
   return base;
 }
 function getDevKey() { return getVal('devKey'); }
+
+function renderGenericProviderTabs() {
+  const bar = document.querySelector('.tabs-bar');
+  if (!bar) return;
+  GENERIC_PROVIDER_TABS.forEach(p => {
+    if ($('tab-' + p.tab)) return;
+    const el = document.createElement('div');
+    el.className = 'tab';
+    el.id = 'tab-' + p.tab;
+    el.onclick = () => switchTab(p.tab);
+    el.innerHTML = `(${p.code}) ${escHtml(p.title)} <span class="badge-pull">Pull</span>`;
+    bar.appendChild(el);
+  });
+}
+
+function renderGenericProviderCards() {
+  const main = document.querySelector('.main');
+  if (!main) return;
+  GENERIC_PROVIDER_TABS.forEach(p => {
+    if ($('card-' + p.tab)) return;
+    const isJdb = p.tab === 'jdbs' || p.tab === 'jdbf';
+    const card = document.createElement('div');
+    card.className = 'form-card';
+    card.id = 'card-' + p.tab;
+    card.innerHTML = `
+      <div class="card-header">
+        <span class="card-title">${escHtml(p.title)}</span>
+        <span class="card-meta"><span class="method-post">POST</span> ${isJdb ? '/developer/pullJDBOrder' : '/developer/game/pull-order'}</span>
+        <span class="card-meta">Provider: ${p.code} · ${escHtml(p.enumName)}</span>
+      </div>
+      <div class="tz-notice ${isJdb ? 'tz-bj' : 'tz-et'}">⏰ 此遊戲拉單請使用 <strong>${isJdb ? '北京時間（GMT+8）' : '美東時間（UTC-4 / EDT）'}</strong></div>
+      <div class="form-grid">
+        <div class="form-group"><label>開始時間 (${isJdb ? 'startDateTime' : 'startDate'})</label><input type="datetime-local" id="${p.tab}-startDate" step="1" oninput="onFormChange('${p.tab}')"></div>
+        <div class="form-group"><label>結束時間 (${isJdb ? 'endDateTime' : 'endDate'})</label><input type="datetime-local" id="${p.tab}-endDate" step="1" oninput="onFormChange('${p.tab}')"></div>
+        <div class="form-group"><label>幣別 (currency)</label><input type="text" id="${p.tab}-currency" list="currency-opts" value="CNY" autocomplete="off" oninput="onFormChange('${p.tab}')"></div>
+        <div class="form-group"><label>代理商 (vendor)</label><input type="text" id="${p.tab}-vendor" oninput="onFormChange('${p.tab}')"></div>
+      </div>
+      ${isJdb ? `
+      <div class="cb-section">
+        <div class="cb-label">布林選項 <span>超過兩小時請保持 false</span></div>
+        <div class="cb-grid">
+          <label class="cb-item"><input type="checkbox" id="${p.tab}-withinTwoHours" oninput="onFormChange('${p.tab}')"><span>withinTwoHours</span></label>
+        </div>
+      </div>` : ''}
+      <div class="actions">
+        <button class="btn-submit" onclick="submitFromCurl('${p.tab}')">送出請求</button>
+        <span class="status-dot" id="${p.tab}-status" style="display:none"></span>
+      </div>
+      <div class="panels">
+        <div>
+          <div class="panel-label">Generated cURL<div class="panel-btns"><button class="btn-mini" onclick="resetCurl('${p.tab}')">↺ Reset</button><button class="btn-mini" id="copy-${p.tab}" onclick="copyCurl('${p.tab}')">複製</button></div></div>
+          <textarea class="curl-ta" id="${p.tab}-curl-edit" spellcheck="false" oninput="markDirty('${p.tab}')"></textarea>
+        </div>
+        <div>
+          <div class="panel-label">Response <span id="${p.tab}-resp-count" style="color:#484f58"></span></div>
+          <div class="resp-container" id="${p.tab}-resp-container"><div class="resp-empty">等待請求...</div></div>
+        </div>
+      </div>`;
+    main.appendChild(card);
+  });
+}
+
+function renderGenericProviders() {
+  renderGenericProviderTabs();
+  renderGenericProviderCards();
+}
 
 // ── Dev Key ──────────────────────────────────
 async function fetchDevKey() {
@@ -559,6 +649,23 @@ function buildPullOrderCurl(tab, provider) {
   });
 }
 
+function buildJdbCurl(tab, provider) {
+  const base = getBaseUrlSafe() || '{{baseUrl}}/platform/thirdparty';
+  const key = getDevKey() || '{{devKey}}';
+  const start = fmtDt(getVal(tab+'-startDate'));
+  const end = fmtDt(getVal(tab+'-endDate'));
+  const p = [
+    `key=${key}`,
+    `vendor=${encodeURIComponent(vendorOf(tab))}`,
+    `currency=${encodeURIComponent(getVal(tab+'-currency'))}`,
+    `provider=${provider}`,
+    `startDateTime=${encodeURIComponent(start)}`,
+    `endDateTime=${encodeURIComponent(end)}`,
+    `withinTwoHours=${$(tab+'-withinTwoHours')?.checked ? 'true' : 'false'}`
+  ].join('&');
+  return `curl --location --globoff \\\n  '${base}/developer/pullJDBOrder?${p}' \\\n  --header 'Content-Type: application/json' \\\n  --data ''`;
+}
+
 function buildPdCurl() {
   const base = getBaseUrlSafe() || '{{baseUrl}}/platform/thirdparty';
   const key = getDevKey() || '{{devKey}}';
@@ -583,6 +690,12 @@ const CURL_BUILDERS = {
   pd:  buildPdCurl,
 };
 
+GENERIC_PROVIDER_TABS.forEach(p => {
+  CURL_BUILDERS[p.tab] = () => (p.tab === 'jdbs' || p.tab === 'jdbf')
+    ? buildJdbCurl(p.tab, p.code)
+    : buildPullOrderCurl(p.tab, p.code);
+});
+
 // ── cURL Parser ──────────────────────────────
 function parseCurlToFetch(curlStr) {
   const flat = curlStr.replace(/\\\s*\n\s*/g,' ').trim();
@@ -596,7 +709,13 @@ function parseCurlToFetch(curlStr) {
   return { url, method, headers, body };
 }
 function extractDates(p) {
-  if (p.method === 'GET') { try { const u = new URL(p.url); return { startDt: u.searchParams.get('startDateTime'), endDt: u.searchParams.get('endDateTime') }; } catch { return {}; } }
+  try {
+    const u = new URL(p.url);
+    const startDt = u.searchParams.get('startDateTime');
+    const endDt = u.searchParams.get('endDateTime');
+    if (startDt || endDt) return { startDt, endDt };
+  } catch {}
+  if (p.method === 'GET') return {};
   try { const b = JSON.parse(p.body||'{}'); return { startDt: b.startDate, endDt: b.endDate }; } catch { return {}; }
 }
 // ── Result management ────────────────────────
@@ -669,6 +788,7 @@ async function copyCurl(tab) {
 // ── Init ─────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
   renderDomainSelect('domain-select-container');
+  renderGenericProviders();
 
   // 同步 globalVendor 到各 tab vendor 欄位
   $('globalVendor')?.addEventListener('input', () => {
